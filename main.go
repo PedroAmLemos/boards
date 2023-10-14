@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -107,10 +108,14 @@ func main() {
 	go handleMessages()
 	go listenForCommands()
 
-	port := "8080"
-	log.Printf("Starting server on http://localhost:%s", port)
-	err := http.ListenAndServe(":"+port, nil)
+	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("Starting server on http://localhost:%d", listener.Addr().(*net.TCPAddr).Port)
+	err = http.Serve(listener, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 }

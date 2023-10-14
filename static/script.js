@@ -5,7 +5,10 @@ let isDrawing = false;
 let lines = [];
 let selectedLineIndex = -1;
 let selectedPoint = null;
-const ws = new WebSocket('ws://localhost:8080/ws');
+const loc = window.location;
+
+const wsURL = (loc.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + loc.host + '/ws';
+const ws = new WebSocket(wsURL);
 
 ws.onmessage = (event) => {
   const line = JSON.parse(event.data);
