@@ -52,8 +52,37 @@ func startServer(ip string) {
 }
 
 func handleConnection(conn net.Conn) {
-	defer conn.Close()
 	fmt.Println("Connection established with:", conn.RemoteAddr())
+	defer conn.Close()
+	message, err := bufio.NewReader(conn).ReadString('\n')
+	if err != nil {
+		fmt.Println("Error reading message:", err)
+		return
+	}
+	protocol := strings.Fields(message)[0]
+	switch protocol {
+	case "listBoards":
+		fmt.Println("Received listBoards request")
+		returnMsg := fmt.Sprintf("%s ", protocol)
+		if boardExists {
+			returnMsg += "true\n"
+			conn.Write([]byte(returnMsg))
+		} else {
+			returnMsg += "false\n"
+			conn.Write([]byte(returnMsg))
+		}
+	case "connectToBoard":
+		fmt.Println("Message received: ", message)
+		fmt.Println("Received connectToBoard request")
+		if !boardExists {
+			conn.Write([]byte("Board does not exist\n"))
+			return
+		}
+		conn.Write([]byte("Board exists\n"))
+	default:
+		fmt.Println("Invalid protocol")
+	}
+	fmt.Println("Received message: ", message)
 }
 
 type Line struct {
@@ -159,6 +188,32 @@ func createBoard() {
 	}
 }
 
+func multicast(name string, people map[string]string, content string, protocol string) (map[string]string, error) {
+	message := fmt.Sprintf("%s %s %s\n", protocol, name, content)
+	responses := make(map[string]string)
+	for _, recipient := range people {
+		conn, err := net.Dial("tcp", recipient)
+		if err != nil {
+			fmt.Println("Error connecting to recipient:", err)
+			return nil, err
+		}
+		defer conn.Close()
+		_, err = conn.Write([]byte(message))
+		if err != nil {
+			fmt.Println("Error sending message:", err)
+			return nil, err
+		}
+		response, err := bufio.NewReader(conn).ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading response:", err)
+			return nil, err
+		}
+		responses[recipient] = response
+	}
+
+	return responses, nil
+}
+
 func mainLoop(people map[string]string, name string) {
 	for {
 		command := readInput("")
@@ -181,10 +236,46 @@ func mainLoop(people map[string]string, name string) {
 				continue
 			}
 			createLine(readInput("Enter coordinates: "))
+		case "listBoards":
+			responses, err := multicast(name, people, "", "listBoards")
+			if err != nil {
+				fmt.Println("Error sending message:", err)
+				continue
+			}
+			for recipient, response := range responses {
+				if strings.Fields(response)[1] == "true" {
+					fmt.Printf("Board exists at %s\n", recipient)
+				}
+			}
+		case "connectToBoard":
+			fmt.Println("Connecting to board...")
+			node := readInput("Enter name: ")
+			unicast(name, people[node], "", "connectToBoard")
 		default:
 			fmt.Println("Invalid command")
 		}
 	}
+}
+
+func unicast(name string, recipient string, content string, protocol string) {
+	message := fmt.Sprintf("%s %s %s\n", protocol, name, content)
+	conn, err := net.Dial("tcp", recipient)
+	if err != nil {
+		fmt.Println("Error connecting to recipient:", err)
+		return
+	}
+	defer conn.Close()
+	_, err = conn.Write([]byte(message))
+	if err != nil {
+		fmt.Println("Error sending message:", err)
+		return
+	}
+	response, err := bufio.NewReader(conn).ReadString('\n')
+	if err != nil {
+		fmt.Println("Error reading response:", err)
+		return
+	}
+	fmt.Println("Response: ", response)
 }
 
 func main() {
