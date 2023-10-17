@@ -98,7 +98,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func handleConnections(w http.ResponseWriter, r *http.Request) {
+func handleWsConnections(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -125,7 +125,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleMessages() {
+func handleWsMessages() {
 	for {
 		line := <-broadcast
 		for client := range clients {
@@ -154,14 +154,6 @@ func createLine(cmd string) {
 	broadcast <- Line{x1, y1, x2, y2}
 }
 
-func listenForCommands() {
-	reader := bufio.NewReader(os.Stdin)
-	for {
-		cmd, _ := reader.ReadString('\n')
-		createLine(strings.TrimSpace(cmd))
-	}
-}
-
 func readInput(prompt string) string {
 	fmt.Print(prompt)
 	reader := bufio.NewReader(os.Stdin)
@@ -173,9 +165,9 @@ func createBoard() {
 	fs := http.FileServer(http.Dir("./static"))
 	http.Handle("/", fs)
 
-	http.HandleFunc("/ws", handleConnections)
+	http.HandleFunc("/ws", handleWsConnections)
 
-	go handleMessages()
+	go handleWsMessages()
 
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -250,32 +242,40 @@ func mainLoop(people map[string]string, name string) {
 		case "connectToBoard":
 			fmt.Println("Connecting to board...")
 			node := readInput("Enter name: ")
-			unicast(name, people[node], "", "connectToBoard")
+			response, err := unicast(name, people[node], "", "connectToBoard")
+			if err != nil {
+				fmt.Println("Error sending message:", err)
+				continue
+			}
+			if len(strings.TrimSpace(response)) == 0 {
+				fmt.Println("Error, empty response")
+			}
+			fmt.Println(response)
 		default:
 			fmt.Println("Invalid command")
 		}
 	}
 }
 
-func unicast(name string, recipient string, content string, protocol string) {
+func unicast(name string, recipient string, content string, protocol string) (string, error) {
 	message := fmt.Sprintf("%s %s %s\n", protocol, name, content)
 	conn, err := net.Dial("tcp", recipient)
 	if err != nil {
 		fmt.Println("Error connecting to recipient:", err)
-		return
+		return "", err
 	}
 	defer conn.Close()
 	_, err = conn.Write([]byte(message))
 	if err != nil {
 		fmt.Println("Error sending message:", err)
-		return
+		return "", err
 	}
 	response, err := bufio.NewReader(conn).ReadString('\n')
 	if err != nil {
 		fmt.Println("Error reading response:", err)
-		return
+		return "", err
 	}
-	fmt.Println("Response: ", response)
+	return response, nil
 }
 
 func main() {
