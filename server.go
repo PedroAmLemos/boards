@@ -22,15 +22,15 @@ func handleConnection(conn net.Conn) {
 		fmt.Printf("\n[log] Received PING, sending PONG back\n")
 		conn.Write([]byte("PONG"))
 	case "listBoards":
-		fmt.Printf("\n[log] Received listBoards, sending %t back\n", board)
-		if board {
+		fmt.Printf("\n[log] Received listBoards, sending %t back\n", isBoard)
+		if isBoard {
 			conn.Write([]byte("true"))
 		} else {
 			conn.Write([]byte("false"))
 		}
 	case "connectToBoard":
 		fmt.Printf("\n[log] Received connectToBoard, sending the lines back\n")
-		conn.Write([]byte(getLines()))
+		conn.Write([]byte(boards["mainBoard"].GetLines()))
 	default:
 		fmt.Printf("\n[log] Received unknown message: %s\n", msg)
 	}

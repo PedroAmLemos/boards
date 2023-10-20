@@ -2,8 +2,11 @@ package main
 
 import "fmt"
 
-var createBoardSignal chan bool
-var board bool = false
+var (
+	createBoardSignal chan bool
+	isBoard           bool = false
+	boards                 = make(map[string]*Board)
+)
 
 func main() {
 	createBoardSignal = make(chan bool)
@@ -20,8 +23,10 @@ func main() {
 	for {
 		select {
 		case <-createBoardSignal:
-			board = true
-			createBoard()
+			isBoard = true
+			mainBoard := NewBoard("mainBoard")
+			boards["mainBoard"] = mainBoard
+			mainBoard.Start()
 		}
 	}
 

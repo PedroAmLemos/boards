@@ -69,15 +69,15 @@ func mainLoop(people map[string]string, name string) {
 		switch cmd {
 		case "createBoard":
 			createBoardSignal <- true
-		case "newLine":
-			coords := readInput("Enter the coordinates: ")
-			newLine, err := parseCoords(coords)
-			if err != nil {
-				fmt.Println("[error] Error parsing coordinates. Please enter valid numbers.")
-				continue
-			} else {
-				createLine(*newLine)
-			}
+		//case "newLine":
+		//	coords := readInput("Enter the coordinates: ")
+		//	newLine, err := parseCoords(coords)
+		//	if err != nil {
+		//		fmt.Println("[error] Error parsing coordinates. Please enter valid numbers.")
+		//		continue
+		//	} else {
+		//		createLine(*newLine)
+		//	}
 		case "unicast":
 			sentTo := readInput("Enter the name of the person you want to send the message to: ")
 			message := readInput("Enter the message: ")
@@ -118,10 +118,9 @@ func mainLoop(people map[string]string, name string) {
 			}
 			fmt.Printf("[log] Response from %s: %q\n", boardName, string(response))
 			lines := parseLine(string(response))
-			for _, line := range lines {
-				createLine(line)
-			}
-			go createBoard()
+			newBoard := NewBoard(boardName)
+			newBoard.lines = lines
+			go newBoard.Start()
 		}
 
 	}
