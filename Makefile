@@ -11,10 +11,6 @@ build:
 	go mod download
 	go build -o $(BINARY_NAME)
 
-# Target to run the binary
-run: build
-	./$(BINARY_NAME)
-
 # Target to clean the binary
 clean:
 	go clean
