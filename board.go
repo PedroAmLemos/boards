@@ -62,10 +62,12 @@ func createBoard() {
 		handleInput()
 		mu.Unlock()
 
+		mu.Lock()
 		raylib.BeginDrawing()
 		raylib.ClearBackground(raylib.RayWhite)
 		drawLines()
 		raylib.EndDrawing()
+		mu.Unlock()
 	}
 
 	raylib.CloseWindow()
@@ -140,4 +142,16 @@ func lineNotifier() {
 		}
 
 	}
+}
+
+// function to return all the lines as a string, where the first line is the number of lines and each line is a line
+func getLines() string {
+	mu.Lock()
+	defer mu.Unlock()
+	var linesString string
+	linesString += fmt.Sprintf("%d\n", len(lines))
+	for _, line := range lines {
+		linesString += fmt.Sprintf("%.2f %.2f %.2f %.2f\n", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
+	}
+	return linesString
 }

@@ -28,6 +28,9 @@ func handleConnection(conn net.Conn) {
 		} else {
 			conn.Write([]byte("false"))
 		}
+	case "connectToBoard":
+		fmt.Printf("\n[log] Received connectToBoard, sending the lines back\n")
+		conn.Write([]byte(getLines()))
 	default:
 		fmt.Printf("\n[log] Received unknown message: %s\n", msg)
 	}
