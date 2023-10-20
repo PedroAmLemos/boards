@@ -69,10 +69,11 @@ func createBoard() {
 	}
 
 	raylib.CloseWindow()
+	board = false
 	fmt.Print("> ")
 }
 
-func CreateLine(line Line) {
+func createLine(line Line) {
 	mu.Lock()
 	defer mu.Unlock()
 	lines = append(lines, line)
