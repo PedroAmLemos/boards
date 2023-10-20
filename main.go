@@ -20,14 +20,11 @@ func main() {
 	go startServer(thisIP, waitServerStart)
 	<-waitServerStart
 	go mainLoop(people, name)
-	for {
-		select {
-		case <-createBoardSignal:
-			isBoard = true
-			mainBoard := NewBoard("mainBoard")
-			boards["mainBoard"] = mainBoard
-			mainBoard.Start()
-		}
+	for range createBoardSignal {
+		isBoard = true
+		mainBoard := NewBoard("mainBoard")
+		boards["mainBoard"] = mainBoard
+		mainBoard.Start()
 	}
 
 }
