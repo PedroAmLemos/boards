@@ -1,22 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
 
 	raylib "github.com/gen2brain/raylib-go/raylib"
 )
-
-func readInput(prompt string) string {
-	fmt.Print(prompt)
-	reader := bufio.NewReader(os.Stdin)
-	text, _ := reader.ReadString('\n')
-	return strings.TrimSpace(text)
-}
 
 type Line struct {
 	Start, End raylib.Vector2
@@ -55,26 +46,6 @@ func parseCoords(coords string) (*Line, error) {
 		End:   raylib.Vector2{X: float32(x2), Y: float32(y2)},
 	}
 	return &newLine, nil
-}
-
-func mainLoop() {
-	for {
-		cmd := readInput("> ")
-		switch cmd {
-		case "createBoard":
-			createBoardSignal <- true
-		case "newLine":
-			coords := readInput("Enter the coordinates: ")
-			newLine, err := parseCoords(coords)
-			if err != nil {
-				fmt.Println("Error parsing coordinates. Please enter valid numbers.")
-				continue
-			} else {
-				CreateLine(*newLine)
-			}
-		}
-
-	}
 }
 
 func createBoard() {
@@ -169,4 +140,3 @@ func lineNotifier() {
 
 	}
 }
-
