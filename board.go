@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"sync"
 
 	raylib "github.com/gen2brain/raylib-go/raylib"
@@ -13,9 +14,10 @@ type Line struct {
 
 var (
 	// lines          []Line
-	currentLine  *Line
-	selectedLine *Line
-	selectedEnd  *raylib.Vector2
+	currentLine      *Line
+	selectedLine     *Line
+	selectedEnd      *raylib.Vector2
+	connectedClients = make(map[string]net.Conn)
 	// mu             sync.Mutex
 	// updateNotifier chan Line
 	// newNotifier    chan Line
@@ -45,6 +47,13 @@ func (b *Board) Notifier() {
 			fmt.Printf("\nLine updated: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
 		case line := <-b.newChan:
 			fmt.Printf("\nLine created: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
+			if b.name != "mainBoard" {
+				if boards[b.name] == nil {
+					fmt.Printf("\n[DEBUG] connectedClients[b.name] is nil\n")
+				}
+				fmt.Printf("\n[DEBUG] b.name= %v\n", b.name)
+				_, _ = unicast(b.name, people[b.name], fmt.Sprintf("%v newLine %.2f %.2f %.2f %.2f", thisName, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
+			}
 		}
 
 	}

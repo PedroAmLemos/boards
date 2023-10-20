@@ -81,7 +81,7 @@ func mainLoop(people map[string]string, name string) {
 		case "unicast":
 			sentTo := readInput("Enter the name of the person you want to send the message to: ")
 			message := readInput("Enter the message: ")
-			response, err := unicast(name, people[sentTo], message)
+			response, err := unicast(sentTo, people[sentTo], message)
 			if err != nil {
 				fmt.Println("[error] Error sending message:", err)
 				continue
@@ -111,7 +111,7 @@ func mainLoop(people map[string]string, name string) {
 			}
 		case "connectToBoard":
 			boardName := readInput("Enter the name of the person you want to connect to: ")
-			response, err := unicast(name, people[boardName], "connectToBoard")
+			response, err := unicast(name, people[boardName], fmt.Sprintf("%v connectToBoard", name))
 			if err != nil {
 				fmt.Println("[error] Error sending message:", err)
 				continue
@@ -120,6 +120,7 @@ func mainLoop(people map[string]string, name string) {
 			lines := parseLine(string(response))
 			newBoard := NewBoard(boardName)
 			newBoard.lines = lines
+			boards[boardName] = newBoard
 			go newBoard.Start()
 		}
 

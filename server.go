@@ -4,7 +4,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
+	"strings"
 	"time"
+
+	raylib "github.com/gen2brain/raylib-go/raylib"
 )
 
 func handleConnection(conn net.Conn) {
@@ -17,7 +21,10 @@ func handleConnection(conn net.Conn) {
 	}
 
 	msg := string(dinamicBuffer[:n])
-	switch msg {
+	msgParts := strings.Split(msg, " ")
+	name := msgParts[0]
+	cmd := msgParts[1]
+	switch cmd {
 	case "PING":
 		fmt.Printf("\n[log] Received PING, sending PONG back\n")
 		conn.Write([]byte("PONG"))
@@ -31,6 +38,34 @@ func handleConnection(conn net.Conn) {
 	case "connectToBoard":
 		fmt.Printf("\n[log] Received connectToBoard, sending the lines back\n")
 		conn.Write([]byte(boards["mainBoard"].GetLines()))
+		connectedClients[name] = conn
+	case "newLine":
+		fmt.Printf("\n[log] Received newLine, printing it into the board\n")
+		x1, err := strconv.ParseFloat(msgParts[2], 32)
+		if err != nil {
+			fmt.Println("[error] Error parsing float:", err.Error())
+			return
+		}
+		y1, err := strconv.ParseFloat(msgParts[2], 32)
+		if err != nil {
+			fmt.Println("[error] Error parsing float:", err.Error())
+			return
+		}
+		x2, err := strconv.ParseFloat(msgParts[2], 32)
+		if err != nil {
+			fmt.Println("[error] Error parsing float:", err.Error())
+			return
+		}
+		y2, err := strconv.ParseFloat(msgParts[2], 32)
+		if err != nil {
+			fmt.Println("[error] Error parsing float:", err.Error())
+			return
+		}
+
+		boards["mainBoard"].AddLine(Line{
+			Start: raylib.Vector2{X: float32(x1), Y: float32(y1)},
+			End:   raylib.Vector2{X: float32(x2), Y: float32(y2)},
+		})
 	default:
 		fmt.Printf("\n[log] Received unknown message: %s\n", msg)
 	}
