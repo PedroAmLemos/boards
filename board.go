@@ -11,12 +11,17 @@ type Line struct {
 	Start, End raylib.Vector2
 }
 
-var (
-	currentLine      *Line
-	selectedLine     *Line
-	selectedEnd      *raylib.Vector2
-	connectedClients = make(map[string]string)
-)
+// var (
+// 	currentLine  *Line
+// 	selectedLine *Line
+// 	selectedEnd  *raylib.Vector2
+// )
+
+type BoardState struct {
+	currentLine  *Line
+	selectedLine *Line
+	selectedEnd  *raylib.Vector2
+}
 
 type Board struct {
 	name       string
@@ -24,6 +29,7 @@ type Board struct {
 	updateChan chan Line
 	newChan    chan Line
 	mu         sync.Mutex
+	state      BoardState
 }
 
 func NewBoard(name string) *Board {
@@ -35,7 +41,7 @@ func NewBoard(name string) *Board {
 	}
 }
 
-func (b *Board) Notifier() {
+func (b *Board) Notifier(thisName string, people map[string]string, connectedClients map[string]string) {
 	for {
 		select {
 		case line := <-b.updateChan:
@@ -59,24 +65,17 @@ func (b *Board) Notifier() {
 				}
 				fmt.Printf("[log] Response for newLine: %v\n >", string(response))
 			}
-			//if b.name != "mainBoard" {
-			//	if boards[b.name] == nil {
-			//		fmt.Printf("\n[DEBUG] connectedClients[b.name] is nil\n")
-			//	}
-			//	fmt.Printf("\n[DEBUG] b.name= %v\n", b.name)
-			//	_, _ = unicast(b.name, people[b.name], fmt.Sprintf("%v newLine %.2f %.2f %.2f %.2f", thisName, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
-			//}
 		}
 
 	}
 
 }
 
-func (b *Board) Start() {
+func (b *Board) Start(thisName string, people map[string]string, isBoard *bool, connectedClients map[string]string) {
 	raylib.InitWindow(1280, 720, b.name)
 	raylib.SetTargetFPS(60)
 
-	go b.Notifier()
+	go b.Notifier(thisName, people, connectedClients)
 
 	fmt.Print("> ")
 	for !raylib.WindowShouldClose() {
@@ -93,7 +92,7 @@ func (b *Board) Start() {
 	}
 
 	raylib.CloseWindow()
-	isBoard = false
+	*isBoard = false
 	fmt.Print("> ")
 }
 
@@ -106,37 +105,37 @@ func (b *Board) AddLine(newLine Line) {
 func (b *Board) HandleInput() {
 	mousePos := raylib.GetMousePosition()
 	if raylib.IsMouseButtonPressed(raylib.MouseLeftButton) {
-		if selectedLine == nil {
+		if b.state.selectedLine == nil {
 			for i := range b.lines {
 				if raylib.CheckCollisionPointCircle(mousePos, b.lines[i].Start, 5) {
-					selectedLine = &b.lines[i]
-					selectedEnd = &selectedLine.Start
+					b.state.selectedLine = &b.lines[i]
+					b.state.selectedEnd = &b.state.selectedLine.Start
 					break
 				} else if raylib.CheckCollisionPointCircle(mousePos, b.lines[i].End, 5) {
-					selectedLine = &b.lines[i]
-					selectedEnd = &selectedLine.End
+					b.state.selectedLine = &b.lines[i]
+					b.state.selectedEnd = &b.state.selectedLine.End
 					break
 				}
 			}
-			if selectedLine == nil {
-				currentLine = &Line{Start: mousePos, End: mousePos}
+			if b.state.selectedLine == nil {
+				b.state.currentLine = &Line{Start: mousePos, End: mousePos}
 			}
 		}
 	} else if raylib.IsMouseButtonDown(raylib.MouseLeftButton) {
-		if currentLine != nil {
-			currentLine.End = mousePos
-		} else if selectedLine != nil {
-			*selectedEnd = mousePos
+		if b.state.currentLine != nil {
+			b.state.currentLine.End = mousePos
+		} else if b.state.selectedLine != nil {
+			*b.state.selectedEnd = mousePos
 		}
 	} else if raylib.IsMouseButtonReleased(raylib.MouseLeftButton) {
-		if currentLine != nil {
-			b.lines = append(b.lines, *currentLine)
-			b.newChan <- *currentLine
-			currentLine = nil
-		} else if selectedLine != nil {
-			b.updateChan <- *selectedLine
-			selectedLine = nil
-			selectedEnd = nil
+		if b.state.currentLine != nil {
+			b.lines = append(b.lines, *b.state.currentLine)
+			b.newChan <- *b.state.currentLine
+			b.state.currentLine = nil
+		} else if b.state.selectedLine != nil {
+			b.updateChan <- *b.state.selectedLine
+			b.state.selectedLine = nil
+			b.state.selectedEnd = nil
 		}
 	}
 }
@@ -172,10 +171,10 @@ func (b *Board) DrawLines() {
 		raylib.DrawCircleV(line.Start, 5, raylib.Red)
 		raylib.DrawCircleV(line.End, 5, raylib.Red)
 	}
-	if currentLine != nil {
-		raylib.DrawLineEx(currentLine.Start, currentLine.End, 2, raylib.DarkGray)
-		raylib.DrawCircleV(currentLine.Start, 5, raylib.Red)
-		raylib.DrawCircleV(currentLine.End, 5, raylib.Red)
+	if b.state.currentLine != nil {
+		raylib.DrawLineEx(b.state.currentLine.Start, b.state.currentLine.End, 2, raylib.DarkGray)
+		raylib.DrawCircleV(b.state.currentLine.Start, 5, raylib.Red)
+		raylib.DrawCircleV(b.state.currentLine.End, 5, raylib.Red)
 	}
 }
 

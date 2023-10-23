@@ -63,7 +63,7 @@ func multicast(people map[string]string, message string) (map[string][]byte, err
 	return responses, nil
 }
 
-func mainLoop(people map[string]string, name string) {
+func mainLoop(people map[string]string, thisName string, boards map[string]*Board, isBoard *bool, createBoardSignal chan bool, connectedClients map[string]string) {
 	for {
 		cmd := readInput("> ")
 		switch cmd {
@@ -87,7 +87,7 @@ func mainLoop(people map[string]string, name string) {
 				continue
 			}
 			// handle response
-			fmt.Printf("[log] Response from %s: %s\n", name, string(response))
+			fmt.Printf("[log] Response from %s: %s\n", thisName, string(response))
 		case "multicast":
 			message := readInput("Enter the message: ")
 			responses, err := multicast(people, message)
@@ -121,7 +121,7 @@ func mainLoop(people map[string]string, name string) {
 
 		case "connectToBoard":
 			boardName := readInput("Enter the name of the person you want to connect to: ")
-			response, err := unicast(name, people[boardName], fmt.Sprintf("%v connectToBoard", name))
+			response, err := unicast(thisName, people[boardName], fmt.Sprintf("%v connectToBoard", thisName))
 			if err != nil {
 				fmt.Println("[error] Error sending message:", err)
 				continue
@@ -132,7 +132,7 @@ func mainLoop(people map[string]string, name string) {
 			newBoard.lines = lines
 			boards[boardName] = newBoard
 			fmt.Printf("[log] Board %v added", boards[boardName].name)
-			go newBoard.Start()
+			go newBoard.Start(thisName, people, isBoard, connectedClients)
 		}
 
 	}

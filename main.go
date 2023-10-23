@@ -2,32 +2,28 @@ package main
 
 import "fmt"
 
-var (
-	createBoardSignal chan bool
-	isBoard           bool = false
-	boards                 = make(map[string]*Board)
-	thisIP            string
-	thisName          string
-	people            = make(map[string]string)
-)
-
 func main() {
-	createBoardSignal = make(chan bool)
-	var fileName string
-	thisName, fileName = getArgs()
-	people = readFile(fileName)
-	thisIP = people[thisName]
+	var (
+		createBoardSignal = make(chan bool)
+		boards            = make(map[string]*Board)
+		connectedClients  = make(map[string]string)
+		fileName          string
+		isBoard           = false
+	)
+	thisName, fileName := getArgs()
+	people := readFile(fileName)
+	thisIP := people[thisName]
 	fmt.Println("this ip", thisIP)
 	delete(people, thisName)
 	waitServerStart := make(chan bool)
-	go startServer(thisIP, waitServerStart)
+	go startServer(thisIP, waitServerStart, people, boards, &isBoard, connectedClients)
 	<-waitServerStart
-	go mainLoop(people, thisName)
+	go mainLoop(people, thisName, boards, &isBoard, createBoardSignal, connectedClients)
 	for range createBoardSignal {
 		isBoard = true
 		mainBoard := NewBoard("mainBoard")
 		boards["mainBoard"] = mainBoard
-		mainBoard.Start()
+		mainBoard.Start(thisName, people, &isBoard, connectedClients)
 	}
 
 }

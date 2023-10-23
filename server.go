@@ -11,7 +11,7 @@ import (
 	raylib "github.com/gen2brain/raylib-go/raylib"
 )
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, people map[string]string, boards map[string]*Board, isBoard *bool, connectedClients map[string]string) {
 	defer conn.Close()
 	dinamicBuffer := make([]byte, 1024)
 	n, err := conn.Read(dinamicBuffer)
@@ -29,8 +29,8 @@ func handleConnection(conn net.Conn) {
 		fmt.Printf("\n[log] Received PING, sending PONG back\n")
 		conn.Write([]byte("PONG"))
 	case "listBoards":
-		fmt.Printf("\n[log] Received listBoards, sending %t back\n", isBoard)
-		if isBoard {
+		fmt.Printf("\n[log] Received listBoards, sending %t back\n", *isBoard)
+		if *isBoard {
 			conn.Write([]byte("true"))
 		} else {
 			conn.Write([]byte("false"))
@@ -80,7 +80,7 @@ func handleConnection(conn net.Conn) {
 	fmt.Printf("> ")
 }
 
-func startServer(ip string, waitServerStart chan bool) {
+func startServer(ip string, waitServerStart chan bool, people map[string]string, boards map[string]*Board, isBoard *bool, connectedClients map[string]string) {
 	const maxRetries = 3
 	retries := 0
 
@@ -103,7 +103,7 @@ func startServer(ip string, waitServerStart chan bool) {
 				fmt.Println("Error accepting connection:", err)
 				continue
 			}
-			go handleConnection(conn)
+			go handleConnection(conn, people, boards, isBoard, connectedClients)
 		}
 	}
 
