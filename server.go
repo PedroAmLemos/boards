@@ -41,34 +41,38 @@ func handleConnection(conn net.Conn) {
 		connectedClients[name] = conn
 		fmt.Printf("\n[log] New client connected: %v", name)
 	case "newLine":
-		fmt.Printf("\n[log] Received newLine, printing it into the board\n")
-		x1, err := strconv.ParseFloat(msgParts[2], 32)
+		boardName := string(msgParts[2])
+		fmt.Printf("\n[log] Received newLine from %v to %v, printing it into the board\n", name, boardName)
+		// boards[boardName].AddLine(Line{})
+		conn.Write([]byte("Line created"))
+		x1, err := strconv.ParseFloat(msgParts[3], 32)
 		if err != nil {
 			fmt.Println("[error] Error parsing float:", err.Error())
 			return
 		}
-		y1, err := strconv.ParseFloat(msgParts[2], 32)
+		y1, err := strconv.ParseFloat(msgParts[4], 32)
 		if err != nil {
 			fmt.Println("[error] Error parsing float:", err.Error())
 			return
 		}
-		x2, err := strconv.ParseFloat(msgParts[2], 32)
+		x2, err := strconv.ParseFloat(msgParts[5], 32)
 		if err != nil {
 			fmt.Println("[error] Error parsing float:", err.Error())
 			return
 		}
-		y2, err := strconv.ParseFloat(msgParts[2], 32)
+		y2, err := strconv.ParseFloat(msgParts[6], 32)
 		if err != nil {
 			fmt.Println("[error] Error parsing float:", err.Error())
 			return
 		}
-
-		boards["mainBoard"].AddLine(Line{
+		fmt.Printf("[log] New line at %.2f %.2f %.2f %.2f", x1, y1, x2, y2)
+		boards[boardName].AddLine(Line{
 			Start: raylib.Vector2{X: float32(x1), Y: float32(y1)},
 			End:   raylib.Vector2{X: float32(x2), Y: float32(y2)},
 		})
 	default:
 		fmt.Printf("\n[log] Received unknown message: %s\n", msg)
+		conn.Write([]byte("Received unknown message"))
 	}
 	fmt.Printf("> ")
 }

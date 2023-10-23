@@ -47,13 +47,23 @@ func (b *Board) Notifier() {
 			fmt.Printf("\nLine updated: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
 		case line := <-b.newChan:
 			fmt.Printf("\nLine created: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
-			if b.name != "mainBoard" {
-				if boards[b.name] == nil {
-					fmt.Printf("\n[DEBUG] connectedClients[b.name] is nil\n")
+			if b.name == "mainBoard" {
+				fmt.Printf("\n[log] New line created at %v, sending it to all clients\n> ", b.name)
+			} else {
+				fmt.Printf("\n[log] New line created at %v, sending it to the owner\n> ", b.name)
+				response, err := unicast(thisName, people[b.name], fmt.Sprintf("%v newLine mainBoard %.2f %.2f %.2f %.2f", thisName, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
+				if err != nil {
+					fmt.Printf("\n[error] %v\n> ", err)
 				}
-				fmt.Printf("\n[DEBUG] b.name= %v\n", b.name)
-				_, _ = unicast(b.name, people[b.name], fmt.Sprintf("%v newLine %.2f %.2f %.2f %.2f", thisName, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
+				fmt.Printf("[log] Response for newLine: %v\n >", string(response))
 			}
+			//if b.name != "mainBoard" {
+			//	if boards[b.name] == nil {
+			//		fmt.Printf("\n[DEBUG] connectedClients[b.name] is nil\n")
+			//	}
+			//	fmt.Printf("\n[DEBUG] b.name= %v\n", b.name)
+			//	_, _ = unicast(b.name, people[b.name], fmt.Sprintf("%v newLine %.2f %.2f %.2f %.2f", thisName, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
+			//}
 		}
 
 	}

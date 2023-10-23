@@ -13,8 +13,8 @@ var (
 
 func main() {
 	createBoardSignal = make(chan bool)
-
-	thisName, fileName := getArgs()
+	var fileName string
+	thisName, fileName = getArgs()
 	people = readFile(fileName)
 	thisIP = people[thisName]
 	fmt.Println("this ip", thisIP)
