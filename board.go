@@ -44,7 +44,7 @@ func (b *Board) Notifier() {
 			fmt.Printf("\nLine created: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
 			if b.name == "mainBoard" {
 				fmt.Printf("\n[log] New line created at %v, sending it to all clients\n> ", b.name)
-				for _, ip := range people {
+				for _, ip := range connectedClients {
 					response, err := unicast(thisName, ip, fmt.Sprintf("%v newLine %v %.2f %.2f %.2f %.2f", thisName, thisName, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
 					if err != nil {
 						fmt.Printf("\n[error] %v\n >", err)

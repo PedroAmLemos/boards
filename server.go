@@ -64,7 +64,7 @@ func handleConnection(conn net.Conn) {
 			fmt.Println("[error] Error parsing float:", err.Error())
 			return
 		}
-		fmt.Printf("\n[log] New line at %.2f %.2f %.2f %.2f\n> ", x1, y1, x2, y2)
+		fmt.Printf("\n[log] New line at %.2f %.2f %.2f %.2f from %v\n> ", x1, y1, x2, y2, boardName)
 		boards[boardName].AddLine(Line{
 			Start: raylib.Vector2{X: float32(x1), Y: float32(y1)},
 			End:   raylib.Vector2{X: float32(x2), Y: float32(y2)},
