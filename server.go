@@ -38,12 +38,11 @@ func handleConnection(conn net.Conn) {
 	case "connectToBoard":
 		fmt.Printf("\n[log] Received connectToBoard, sending the lines back\n")
 		conn.Write([]byte(boards["mainBoard"].GetLines()))
-		connectedClients[name] = conn
-		fmt.Printf("\n[log] New client connected: %v", name)
+		connectedClients[name] = people[name]
+		fmt.Printf("\n[log] New client connected: %v\n> ", name)
 	case "newLine":
 		boardName := string(msgParts[2])
 		fmt.Printf("\n[log] Received newLine from %v to %v, printing it into the board\n", name, boardName)
-		// boards[boardName].AddLine(Line{})
 		conn.Write([]byte("Line created"))
 		x1, err := strconv.ParseFloat(msgParts[3], 32)
 		if err != nil {
@@ -65,11 +64,15 @@ func handleConnection(conn net.Conn) {
 			fmt.Println("[error] Error parsing float:", err.Error())
 			return
 		}
-		fmt.Printf("[log] New line at %.2f %.2f %.2f %.2f", x1, y1, x2, y2)
+		fmt.Printf("\n[log] New line at %.2f %.2f %.2f %.2f\n> ", x1, y1, x2, y2)
 		boards[boardName].AddLine(Line{
 			Start: raylib.Vector2{X: float32(x1), Y: float32(y1)},
 			End:   raylib.Vector2{X: float32(x2), Y: float32(y2)},
 		})
+		if boardName == "mainBoard" {
+			// send to all other clients
+			fmt.Println("[debug] Sending to ", connectedClients)
+		}
 	default:
 		fmt.Printf("\n[log] Received unknown message: %s\n", msg)
 		conn.Write([]byte("Received unknown message"))
