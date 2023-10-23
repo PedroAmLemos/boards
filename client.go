@@ -109,6 +109,16 @@ func mainLoop(people map[string]string, name string) {
 					fmt.Printf("[log] %s has a board\n", name)
 				}
 			}
+		case "listConnectedBoards":
+			for name := range boards {
+				fmt.Printf("[log] %s has a board\n", name)
+			}
+
+		case "listConnectedClients":
+			for name := range connectedClients {
+				fmt.Printf("[log] Client name: %s has a board\n", name)
+			}
+
 		case "connectToBoard":
 			boardName := readInput("Enter the name of the person you want to connect to: ")
 			response, err := unicast(name, people[boardName], fmt.Sprintf("%v connectToBoard", name))
@@ -121,6 +131,7 @@ func mainLoop(people map[string]string, name string) {
 			newBoard := NewBoard(boardName)
 			newBoard.lines = lines
 			boards[boardName] = newBoard
+			fmt.Printf("[log] Board %v added", boards[boardName].name)
 			go newBoard.Start()
 		}
 

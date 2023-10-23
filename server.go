@@ -39,6 +39,7 @@ func handleConnection(conn net.Conn) {
 		fmt.Printf("\n[log] Received connectToBoard, sending the lines back\n")
 		conn.Write([]byte(boards["mainBoard"].GetLines()))
 		connectedClients[name] = conn
+		fmt.Printf("\n[log] New client connected: %v", name)
 	case "newLine":
 		fmt.Printf("\n[log] Received newLine, printing it into the board\n")
 		x1, err := strconv.ParseFloat(msgParts[2], 32)
