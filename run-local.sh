@@ -15,37 +15,37 @@ if [ -z "$TMUX" ]; then
     fi
 
     # Create a new window in the session and run the first command
-    tmux new-window -t multicast -n 'board-window' './quadro node_1 hosts.local'
+    tmux new-window -t multicast -n 'boards' './boards node_1 hosts.local'
 
     # Split the new window vertically and run the second command
-    tmux split-window -t multicast:board-window -h './quadro node_2 hosts.local'
+    tmux split-window -t multicast:boards -h './boards node_2 hosts.local'
 
     # Split the pane again (from the first pane) and run the third command
-    tmux split-window -t multicast:board-window -h './quadro node_3 hosts.local'
+    tmux split-window -t multicast:boards -h './boards node_3 hosts.local'
 
     # Set the layout to ensure all panes have equal width
-    tmux select-layout -t multicast:board-window even-horizontal
+    tmux select-layout -t multicast:boards even-horizontal
 
     # Attach to the new window (this will also attach to the session)
-    tmux select-window -t multicast:board-window
+    tmux select-window -t multicast:boards
     tmux attach -t multicast
 else
     # Inside of tmux
 
     # Create a new window and run the first command
-    tmux new-window -n 'board-window' './quadro node_1 hosts.local'
+    tmux new-window -n 'boards' './boards node_1 hosts.local'
 
     # Split the new window vertically and run the second command
-    tmux split-window -h './quadro node_2 hosts.local'
+    tmux split-window -h './boards node_2 hosts.local'
 
     # Split the pane again (from the first pane) and run the third command
-    tmux split-window -h './quadro node_3 hosts.local'
+    tmux split-window -h './boards node_3 hosts.local'
 
     # Set the layout to ensure all panes have equal width
     tmux select-layout even-horizontal
 
     # Switch to the new window
-    tmux select-window -t board-window
+    tmux select-window -t boards
 fi
 
 

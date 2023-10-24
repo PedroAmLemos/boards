@@ -11,7 +11,7 @@ import (
 	raylib "github.com/gen2brain/raylib-go/raylib"
 )
 
-func handleConnection(conn net.Conn, people map[string]string, boards map[string]*Board, isBoard *bool, connectedClients map[string]string) {
+func handleConnection(conn net.Conn, people map[string]string, boards map[string]*Board, isBoard *bool, connectedClients map[string]string, thisName string) {
 	defer conn.Close()
 	dinamicBuffer := make([]byte, 1024)
 	n, err := conn.Read(dinamicBuffer)
@@ -71,6 +71,12 @@ func handleConnection(conn net.Conn, people map[string]string, boards map[string
 		})
 		if boardName == "mainBoard" {
 			fmt.Printf("\n[log] Sending to %v\n", connectedClients)
+			for clientName, ip := range connectedClients {
+				if clientName != name {
+					unicast(thisName, ip, fmt.Sprintf("newLine %v %.2f %.2f %.2f %.2f", thisName, x1, y1, x2, y2))
+				}
+			}
+
 		}
 	default:
 		fmt.Printf("\n[log] Received unknown message: %s\n", msg)
@@ -79,7 +85,7 @@ func handleConnection(conn net.Conn, people map[string]string, boards map[string
 	fmt.Printf("> ")
 }
 
-func startServer(ip string, waitServerStart chan bool, people map[string]string, boards map[string]*Board, isBoard *bool, connectedClients map[string]string) {
+func startServer(ip string, waitServerStart chan bool, people map[string]string, boards map[string]*Board, isBoard *bool, connectedClients map[string]string, thisName string) {
 	const maxRetries = 3
 	retries := 0
 
@@ -102,7 +108,7 @@ func startServer(ip string, waitServerStart chan bool, people map[string]string,
 				fmt.Println("Error accepting connection:", err)
 				continue
 			}
-			go handleConnection(conn, people, boards, isBoard, connectedClients)
+			go handleConnection(conn, people, boards, isBoard, connectedClients, thisName)
 		}
 	}
 

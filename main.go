@@ -16,7 +16,7 @@ func main() {
 	fmt.Println("this ip", thisIP)
 	delete(people, thisName)
 	waitServerStart := make(chan bool)
-	go startServer(thisIP, waitServerStart, people, boards, &isBoard, connectedClients)
+	go startServer(thisIP, waitServerStart, people, boards, &isBoard, connectedClients, thisName)
 	<-waitServerStart
 	go mainLoop(people, thisName, boards, &isBoard, createBoardSignal, connectedClients)
 	for range createBoardSignal {
