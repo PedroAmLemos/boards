@@ -70,8 +70,7 @@ func handleConnection(conn net.Conn, people map[string]string, boards map[string
 			End:   raylib.Vector2{X: float32(x2), Y: float32(y2)},
 		})
 		if boardName == "mainBoard" {
-			// send to all other clients
-			fmt.Println("[debug] Sending to ", connectedClients)
+			fmt.Printf("\n[log] Sending to %v\n", connectedClients)
 		}
 	default:
 		fmt.Printf("\n[log] Received unknown message: %s\n", msg)

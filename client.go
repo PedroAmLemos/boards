@@ -17,7 +17,8 @@ func unicast(name, recipient, message string) ([]byte, error) {
 		return nil, err
 	}
 	defer conn.Close()
-	_, err = conn.Write([]byte(message))
+	msg := fmt.Sprintf("%v %v", name, message)
+	_, err = conn.Write([]byte(msg))
 	if err != nil {
 		fmt.Println("[error] Error sending message:", err)
 		return nil, err
@@ -31,7 +32,7 @@ func unicast(name, recipient, message string) ([]byte, error) {
 	return response[:n], nil
 }
 
-func multicast(people map[string]string, message string) (map[string][]byte, error) {
+func multicast(name string, people map[string]string, message string) (map[string][]byte, error) {
 	fmt.Printf("[log] Sending message to all peers: %s\n", message)
 	responses := make(map[string][]byte)
 	for name, ip := range people {
@@ -45,7 +46,8 @@ func multicast(people map[string]string, message string) (map[string][]byte, err
 			}
 		}()
 		if conn != nil {
-			_, err = conn.Write([]byte(message))
+			msg := fmt.Sprintf("%v %v", name, message)
+			_, err = conn.Write([]byte(msg))
 		} else {
 			continue
 		}
@@ -69,15 +71,6 @@ func mainLoop(people map[string]string, thisName string, boards map[string]*Boar
 		switch cmd {
 		case "createBoard":
 			createBoardSignal <- true
-		//case "newLine":
-		//	coords := readInput("Enter the coordinates: ")
-		//	newLine, err := parseCoords(coords)
-		//	if err != nil {
-		//		fmt.Println("[error] Error parsing coordinates. Please enter valid numbers.")
-		//		continue
-		//	} else {
-		//		createLine(*newLine)
-		//	}
 		case "unicast":
 			sentTo := readInput("Enter the name of the person you want to send the message to: ")
 			message := readInput("Enter the message: ")
@@ -86,20 +79,18 @@ func mainLoop(people map[string]string, thisName string, boards map[string]*Boar
 				fmt.Println("[error] Error sending message:", err)
 				continue
 			}
-			// handle response
 			fmt.Printf("[log] Response from %s: %s\n", thisName, string(response))
 		case "multicast":
 			message := readInput("Enter the message: ")
-			responses, err := multicast(people, message)
+			responses, err := multicast(thisName, people, message)
 			if err != nil {
 				fmt.Println("[error] Error sending message:", err)
 				continue
 			}
-			// handle responses
 			fmt.Printf("[log] Responses from peers: %s\n", responses)
 
 		case "listBoards":
-			responses, err := multicast(people, "listBoards")
+			responses, err := multicast(thisName, people, "listBoards")
 			if err != nil {
 				fmt.Println("[error] Error sending message:", err)
 				continue
@@ -121,7 +112,7 @@ func mainLoop(people map[string]string, thisName string, boards map[string]*Boar
 
 		case "connectToBoard":
 			boardName := readInput("Enter the name of the person you want to connect to: ")
-			response, err := unicast(thisName, people[boardName], fmt.Sprintf("%v connectToBoard", thisName))
+			response, err := unicast(thisName, people[boardName], "connectToBoard")
 			if err != nil {
 				fmt.Println("[error] Error sending message:", err)
 				continue
@@ -141,17 +132,14 @@ func mainLoop(people map[string]string, thisName string, boards map[string]*Boar
 func parseLine(lines string) []Line {
 	var result []Line
 
-	// Split the input string into lines
 	linesArr := strings.Split(strings.TrimSpace(lines), "\n")
 
-	// Parse the number of lines from the first line
 	numLines, err := strconv.Atoi(linesArr[0])
 	if err != nil {
 		fmt.Println("[error] Error parsing number of lines:", err)
 		return result
 	}
 
-	// Parse each line and add it to the result array
 	for i := 1; i <= numLines; i++ {
 		lineArr := strings.Split(linesArr[i], " ")
 		if len(lineArr) != 4 {

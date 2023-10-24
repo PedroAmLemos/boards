@@ -45,13 +45,13 @@ func (b *Board) Notifier(thisName string, people map[string]string, connectedCli
 	for {
 		select {
 		case line := <-b.updateChan:
-			fmt.Printf("\nLine updated: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
+			fmt.Printf("\nLine updated: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
 		case line := <-b.newChan:
-			fmt.Printf("\nLine created: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
+			fmt.Printf("\nLine created: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
 			if b.name == "mainBoard" {
 				fmt.Printf("\n[log] New line created at %v, sending it to all clients\n> ", b.name)
 				for _, ip := range connectedClients {
-					response, err := unicast(thisName, ip, fmt.Sprintf("%v newLine %v %.2f %.2f %.2f %.2f", thisName, thisName, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
+					response, err := unicast(thisName, ip, fmt.Sprintf("newLine %v %.2f %.2f %.2f %.2f", thisName, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
 					if err != nil {
 						fmt.Printf("\n[error] %v\n >", err)
 					}
@@ -59,7 +59,7 @@ func (b *Board) Notifier(thisName string, people map[string]string, connectedCli
 				}
 			} else {
 				fmt.Printf("\n[log] New line created at %v, sending it to the owner\n> ", b.name)
-				response, err := unicast(thisName, people[b.name], fmt.Sprintf("%v newLine mainBoard %.2f %.2f %.2f %.2f", thisName, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
+				response, err := unicast(thisName, people[b.name], fmt.Sprintf("newLine mainBoard %.2f %.2f %.2f %.2f", line.Start.X, line.Start.Y, line.End.X, line.End.Y))
 				if err != nil {
 					fmt.Printf("\n[error] %v\n> ", err)
 				}
@@ -72,7 +72,7 @@ func (b *Board) Notifier(thisName string, people map[string]string, connectedCli
 }
 
 func (b *Board) Start(thisName string, people map[string]string, isBoard *bool, connectedClients map[string]string) {
-	raylib.InitWindow(1280, 720, b.name)
+	raylib.InitWindow(800, 600, b.name)
 	raylib.SetTargetFPS(60)
 
 	go b.Notifier(thisName, people, connectedClients)
@@ -97,9 +97,9 @@ func (b *Board) Start(thisName string, people map[string]string, isBoard *bool, 
 }
 
 func (b *Board) AddLine(newLine Line) {
-	b.mu.Lock()
+	// b.mu.Lock()
 	b.lines = append(b.lines, newLine)
-	b.mu.Unlock()
+	// b.mu.Unlock()
 }
 
 func (b *Board) HandleInput() {
