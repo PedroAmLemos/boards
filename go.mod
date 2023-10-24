@@ -1,4 +1,4 @@
-module quadro
+module boards
 
 go 1.21.2
 
