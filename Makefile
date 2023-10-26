@@ -1,7 +1,11 @@
 # Makefile for building, running, and cleaning the Go project
 
-# Variables
-BINARY_NAME=boards
+# check if in windows to make boards.exe
+ifeq ($(OS),Windows_NT)
+	BINARY_NAME=boards.exe
+else
+	BINARY_NAME=boards
+endif
 
 # Default target to build the binary
 all: build

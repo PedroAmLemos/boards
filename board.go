@@ -11,6 +11,11 @@ type Line struct {
 	Start, End raylib.Vector2
 }
 
+type Command struct {
+	action string
+	line   Line
+}
+
 // var (
 // 	currentLine  *Line
 // 	selectedLine *Line
@@ -24,20 +29,22 @@ type BoardState struct {
 }
 
 type Board struct {
-	name       string
-	lines      []Line
-	updateChan chan Line
-	newChan    chan Line
-	mu         sync.Mutex
-	state      BoardState
+	name        string
+	lines       []Line
+	updateChan  chan Line
+	newChan     chan Line
+	mu          sync.Mutex
+	state       BoardState
+	commandChan chan Command
 }
 
 func NewBoard(name string) *Board {
 	return &Board{
-		name:       name,
-		lines:      []Line{},
-		updateChan: make(chan Line),
-		newChan:    make(chan Line),
+		name:        name,
+		lines:       []Line{},
+		updateChan:  make(chan Line),
+		newChan:     make(chan Line),
+		commandChan: make(chan Command, 100),
 	}
 }
 
@@ -75,20 +82,44 @@ func (b *Board) Start(thisName string, people map[string]string, isBoard *bool, 
 	raylib.InitWindow(800, 600, b.name)
 	raylib.SetTargetFPS(60)
 
-	go b.Notifier(thisName, people, connectedClients)
+	// go b.Notifier(thisName, people, connectedClients)
+	go func() {
+		for cmd := range b.commandChan {
+			switch cmd.action {
+			case "add":
+				b.AddLine(cmd.line)
+				// if b.name == "mainBoard" {
+				// 	fmt.Printf("\n[board] New line created at the main board on %.2f %.2f %.2f %.2f\n> ", cmd.line.Start.X, cmd.line.Start.Y, cmd.line.End.X, cmd.line.End.Y)
+				// 	fmt.Printf("\n[log] Sending to %v\n> ", connectedClients)
+				// 	for clientName, ip := range connectedClients {
+				// 		if clientName != thisName {
+				// 			_, err := unicast(thisName, ip, fmt.Sprintf("newLine %v %.2f %.2f %.2f %.2f", thisName, cmd.line.Start.X, cmd.line.Start.Y, cmd.line.End.X, cmd.line.End.Y))
+				// 			if err != nil {
+				// 				fmt.Printf("\n[error] %v\n> ", err)
+				// 			}
+				// 		}
+				// 	}
+				// }
+			case "update":
+				for i := range b.lines {
+					if b.lines[i].Start == cmd.line.Start && b.lines[i].End == cmd.line.End {
+						b.lines[i] = cmd.line
+						break
+					}
+				}
+			}
+
+		}
+	}()
 
 	fmt.Print("> ")
 	for !raylib.WindowShouldClose() {
-		b.mu.Lock()
 		b.HandleInput()
-		b.mu.Unlock()
 
-		b.mu.Lock()
 		raylib.BeginDrawing()
 		raylib.ClearBackground(raylib.RayWhite)
 		b.DrawLines()
 		raylib.EndDrawing()
-		b.mu.Unlock()
 	}
 
 	raylib.CloseWindow()
@@ -129,11 +160,13 @@ func (b *Board) HandleInput() {
 		}
 	} else if raylib.IsMouseButtonReleased(raylib.MouseLeftButton) {
 		if b.state.currentLine != nil {
-			b.lines = append(b.lines, *b.state.currentLine)
-			b.newChan <- *b.state.currentLine
+			// b.lines = append(b.lines, *b.state.currentLine)
+			// b.newChan <- *b.state.currentLine
+			b.commandChan <- Command{action: "add", line: *b.state.currentLine}
 			b.state.currentLine = nil
 		} else if b.state.selectedLine != nil {
-			b.updateChan <- *b.state.selectedLine
+			// b.updateChan <- *b.state.selectedLine
+			b.commandChan <- Command{action: "update", line: *b.state.selectedLine}
 			b.state.selectedLine = nil
 			b.state.selectedEnd = nil
 		}
