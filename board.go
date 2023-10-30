@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 
 	raylib "github.com/gen2brain/raylib-go/raylib"
@@ -11,11 +13,9 @@ type Line struct {
 	Start, End raylib.Vector2
 }
 
-// var (
-// 	currentLine  *Line
-// 	selectedLine *Line
-// 	selectedEnd  *raylib.Vector2
-// )
+func (l Line) String() string {
+	return fmt.Sprintf("%f %f %f %f", l.Start.X, l.Start.Y, l.End.X, l.End.Y)
+}
 
 type BoardState struct {
 	currentLine  *Line
@@ -23,59 +23,55 @@ type BoardState struct {
 	selectedEnd  *raylib.Vector2
 }
 
+type Clients map[string]struct{}
+
 type Board struct {
-	name       string
-	lines      []Line
-	updateChan chan Line
-	newChan    chan Line
-	mu         sync.Mutex
-	state      BoardState
+	name             string
+	lines            []Line
+	updateChan       chan Line
+	newChan          chan Line
+	mu               sync.Mutex
+	state            BoardState
+	connectedClients Clients
 }
 
 func NewBoard(name string) *Board {
 	return &Board{
-		name:       name,
-		lines:      []Line{},
-		updateChan: make(chan Line),
-		newChan:    make(chan Line),
+		name:             name,
+		lines:            []Line{},
+		updateChan:       make(chan Line),
+		newChan:          make(chan Line),
+		connectedClients: make(Clients),
 	}
 }
 
-func (b *Board) Notifier(thisName string, people map[string]string, connectedClients map[string]string) {
+func (b *Board) Notifier(nodes map[string]*Node) {
 	for {
 		select {
 		case line := <-b.updateChan:
-			fmt.Printf("\nLine updated: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
+			fmt.Printf("\nLine updated: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
+			for client := range b.connectedClients {
+				unicast(nodes, client, fmt.Sprintf("updateline %f %f %f %f", line.Start.X, line.Start.Y, line.End.X, line.End.Y))
+			}
 		case line := <-b.newChan:
-			fmt.Printf("\nLine created: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
+			fmt.Printf("\nLine created: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
 			if b.name == "mainBoard" {
-				fmt.Printf("\n[log] New line created at %v, sending it to all clients\n> ", b.name)
-				for _, ip := range connectedClients {
-					response, err := unicast(thisName, ip, fmt.Sprintf("newLine %v %.2f %.2f %.2f %.2f", thisName, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
-					if err != nil {
-						fmt.Printf("\n[error] %v\n >", err)
-					}
-					fmt.Println(string(response))
+				for client := range b.connectedClients {
+					unicast(nodes, client, fmt.Sprintf("newline %v %f %f %f %f", nodes["thisNode"].name, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
 				}
 			} else {
-				fmt.Printf("\n[log] New line created at %v, sending it to the owner\n> ", b.name)
-				response, err := unicast(thisName, people[b.name], fmt.Sprintf("newLine mainBoard %.2f %.2f %.2f %.2f", line.Start.X, line.Start.Y, line.End.X, line.End.Y))
-				if err != nil {
-					fmt.Printf("\n[error] %v\n> ", err)
-				}
-				fmt.Printf("[log] Response for newLine: %v\n >", string(response))
+				unicast(nodes, b.name, fmt.Sprintf("newline mainBoard %f %f %f %f", line.Start.X, line.Start.Y, line.End.X, line.End.Y))
 			}
 		}
-
+		fmt.Printf("\n> ")
 	}
-
 }
 
-func (b *Board) Start(thisName string, people map[string]string, isBoard *bool, connectedClients map[string]string) {
-	raylib.InitWindow(800, 600, b.name)
+func (b *Board) Start(nodes map[string]*Node, activeBoard *bool) {
+	raylib.InitWindow(1280, 720, b.name)
 	raylib.SetTargetFPS(60)
 
-	go b.Notifier(thisName, people, connectedClients)
+	go b.Notifier(nodes)
 
 	fmt.Print("> ")
 	for !raylib.WindowShouldClose() {
@@ -92,14 +88,12 @@ func (b *Board) Start(thisName string, people map[string]string, isBoard *bool, 
 	}
 
 	raylib.CloseWindow()
-	*isBoard = false
+	*activeBoard = false
 	fmt.Print("> ")
 }
 
 func (b *Board) AddLine(newLine Line) {
-	// b.mu.Lock()
 	b.lines = append(b.lines, newLine)
-	// b.mu.Unlock()
 }
 
 func (b *Board) HandleInput() {
@@ -188,4 +182,73 @@ func (b *Board) GetLines() string {
 	}
 	return linesString
 
+}
+
+func parseLine(line []string) Line {
+	x1, err := strconv.ParseFloat(line[0], 64)
+	if err != nil {
+		fmt.Println("[error] Error parsing x1:", err)
+	}
+	y1, err := strconv.ParseFloat(line[1], 64)
+	if err != nil {
+		fmt.Println("[error] Error parsing y1:", err)
+	}
+	x2, err := strconv.ParseFloat(line[2], 64)
+	if err != nil {
+		fmt.Println("[error] Error parsing x2:", err)
+	}
+	y2, err := strconv.ParseFloat(line[3], 64)
+	if err != nil {
+		fmt.Println("[error] Error parsing y2:", err)
+	}
+	return Line{
+		Start: raylib.Vector2{X: float32(x1), Y: float32(y1)},
+		End:   raylib.Vector2{X: float32(x2), Y: float32(y2)},
+	}
+}
+
+func parseLines(lines string) []Line {
+	var result []Line
+
+	linesArr := strings.Split(strings.TrimSpace(lines), "\n")
+
+	numLines, err := strconv.Atoi(linesArr[0])
+	if err != nil {
+		fmt.Println("[error] Error parsing number of lines:", err)
+		return result
+	}
+
+	for i := 1; i <= numLines; i++ {
+		lineArr := strings.Split(linesArr[i], " ")
+		if len(lineArr) != 4 {
+			fmt.Println("[error] Invalid line format:", linesArr[i])
+			continue
+		}
+		x1, err := strconv.ParseFloat(lineArr[0], 64)
+		if err != nil {
+			fmt.Println("[error] Error parsing x1:", err)
+			continue
+		}
+		y1, err := strconv.ParseFloat(lineArr[1], 64)
+		if err != nil {
+			fmt.Println("[error] Error parsing y1:", err)
+			continue
+		}
+		x2, err := strconv.ParseFloat(lineArr[2], 64)
+		if err != nil {
+			fmt.Println("[error] Error parsing x2:", err)
+			continue
+		}
+		y2, err := strconv.ParseFloat(lineArr[3], 64)
+		if err != nil {
+			fmt.Println("[error] Error parsing y2:", err)
+			continue
+		}
+		result = append(result, Line{
+			Start: raylib.Vector2{X: float32(x1), Y: float32(y1)},
+			End:   raylib.Vector2{X: float32(x2), Y: float32(y2)},
+		})
+	}
+
+	return result
 }

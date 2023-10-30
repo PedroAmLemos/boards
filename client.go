@@ -3,174 +3,129 @@ package main
 import (
 	"fmt"
 	"net"
-	"strconv"
+	"os"
 	"strings"
 
 	raylib "github.com/gen2brain/raylib-go/raylib"
 )
 
-func unicast(name, recipient, message string) ([]byte, error) {
-	fmt.Printf("[log] Sending message to %s at %s: %s\n", name, recipient, message)
-	conn, err := net.Dial("tcp", recipient)
+func unicast(nodes map[string]*Node, receiver string, message string) ([]byte, error) {
+	fmt.Println()
+	printHorizontalLine()
+	fmt.Printf("[log] Unicasting %s\n", message)
+	node := nodes[receiver]
+	if node == nil {
+		return nil, fmt.Errorf("node not found")
+	}
+
+	conn, err := net.Dial("tcp", node.ip)
+	fmt.Printf("[log] Connecting to %s\n", node.ip)
 	if err != nil {
-		fmt.Println("[error] Error connecting to recipient:", err)
-		return nil, err
+		return nil, fmt.Errorf("could not connect to %s: %v", node.name, err)
 	}
 	defer conn.Close()
-	msg := fmt.Sprintf("%v %v", name, message)
-	_, err = conn.Write([]byte(msg))
+	msg := []byte(fmt.Sprintf("%v %v", nodes["thisNode"].name, message))
+	_, err = conn.Write(msg)
 	if err != nil {
-		fmt.Println("[error] Error sending message:", err)
-		return nil, err
+		return nil, fmt.Errorf("could not send message to %s: %v", node.name, err)
 	}
+	fmt.Printf("[log] Sent message to %s\n[log] Waiting for response...", node.name)
 	response := make([]byte, 1024)
 	n, err := conn.Read(response)
 	if err != nil {
-		fmt.Println("[error] Error reading response:", err)
-		return nil, err
+		return nil, fmt.Errorf("could not read response from %s: %v", node.name, err)
 	}
+	fmt.Printf("\n[log] Got response from %s\n", node.name)
+	printHorizontalLine()
 	return response[:n], nil
 }
 
-func multicast(name string, people map[string]string, message string) (map[string][]byte, error) {
-	fmt.Printf("[log] Sending message to all peers: %s\n", message)
+func multicast(nodes map[string]*Node, message string) map[string][]byte {
+	printHorizontalLine()
+	fmt.Printf("[log] Multicasting %s\n", message)
 	responses := make(map[string][]byte)
-	for name, ip := range people {
-		conn, err := net.Dial("tcp", ip)
-		if err != nil {
-			fmt.Println("[error] Error connecting to recipient:", err)
-		}
-		defer func() {
-			if conn != nil {
-				conn.Close()
+
+	for _, node := range nodes {
+		if !node.isThisNode {
+			conn, err := net.Dial("tcp", node.ip)
+			fmt.Printf("[log] Connecting to %s\n", node.ip)
+			if err != nil {
+				fmt.Printf("[error] Could not connect to %s: %v\nContinuing...\n", node.name, err)
+				continue
 			}
-		}()
-		if conn != nil {
-			msg := fmt.Sprintf("%v %v", name, message)
-			_, err = conn.Write([]byte(msg))
-		} else {
-			continue
+			defer conn.Close()
+			msg := []byte(fmt.Sprintf("%v %v", node.name, message))
+			_, err = conn.Write(msg)
+			if err != nil {
+				fmt.Printf("[error] Could not send message to %s: %v\nContinuing...\n", node.name, err)
+				continue
+			}
+			fmt.Printf("[log] Sent message to %s\n[log] Waiting for response...", node.name)
+			response := make([]byte, 1024)
+
+			n, err := conn.Read(response)
+			if err != nil {
+				fmt.Printf("[error] Could not read response from %s: %v\nContinuing...\n", node.name, err)
+				continue
+			}
+			fmt.Printf("\n[log] Got response from %s\n", node.name)
+			responses[node.name] = response[:n]
 		}
-		if err != nil {
-			fmt.Println("[error] Error sending message:", err)
-		}
-		response := make([]byte, 1024)
-		n, err := conn.Read(response)
-		if err != nil {
-			fmt.Println("[error] Error reading response:", err)
-			return nil, err
-		}
-		responses[name] = response[:n]
 	}
-	return responses, nil
+	printHorizontalLine()
+	return responses
 }
 
-func mainLoop(people map[string]string, thisName string, boards map[string]*Board, isBoard *bool, createBoardSignal chan bool, connectedClients map[string]string) {
+func mainLoop(nodes map[string]*Node, createBoardSignal chan BoardAction, activeBoard *bool) {
 	for {
-		cmd := readInput("> ")
-		switch cmd {
-		case "createBoard":
-			createBoardSignal <- true
-		case "unicast":
-			sentTo := readInput("Enter the name of the person you want to send the message to: ")
-			message := readInput("Enter the message: ")
-			response, err := unicast(sentTo, people[sentTo], message)
-			if err != nil {
-				fmt.Println("[error] Error sending message:", err)
+		command := strings.ToLower(readInput("> "))
+		switch command {
+		case "exit":
+			os.Exit(0)
+		case "createboard":
+			if *activeBoard {
+				fmt.Println("You are already connected to a board")
 				continue
 			}
-			fmt.Printf("[log] Response from %s: %s\n", thisName, string(response))
-		case "multicast":
-			message := readInput("Enter the message: ")
-			responses, err := multicast(thisName, people, message)
-			if err != nil {
-				fmt.Println("[error] Error sending message:", err)
+			createBoardSignal <- BoardAction{Action: "new"}
+		case "connecttoboard":
+			if *activeBoard {
+				fmt.Println("You are already connected to a board")
 				continue
 			}
-			fmt.Printf("[log] Responses from peers: %s\n", responses)
-
-		case "listBoards":
-			responses, err := multicast(thisName, people, "listBoards")
-			if err != nil {
-				fmt.Println("[error] Error sending message:", err)
-				continue
-			}
+			boardName := readInput("Enter the board name: ")
+			createBoardSignal <- BoardAction{Action: "connect", BoardName: boardName}
+		case "newline":
+			nodes["thisNode"].board.AddLine(Line{
+				Start: raylib.Vector2{X: 0, Y: 0},
+				End:   raylib.Vector2{X: 100, Y: 100},
+			})
+		case "listcreatedboards":
+		case "lscb":
+			responses := multicast(nodes, "listcreatedboards")
+			count := 0
+			printHorizontalLine()
 			for name, response := range responses {
 				if string(response) == "true" {
-					fmt.Printf("[log] %s has a board\n", name)
+					fmt.Printf("\n%v[log] %s has a created board%v\n", RedColor, name, ResetColor)
+					count++
 				}
 			}
-		case "listConnectedBoards":
-			for name := range boards {
-				fmt.Printf("[log] %s has a board\n", name)
+			if count == 0 {
+				if nodes["thisNode"].board == nil {
+					printRed("[log] no boards found")
+				} else {
+					printRed("[log] no boards found, only the current board is created")
+				}
 			}
-
-		case "listConnectedClients":
-			for name := range connectedClients {
-				fmt.Printf("[log] Client name: %s has a board\n", name)
-			}
-
-		case "connectToBoard":
-			boardName := readInput("Enter the name of the person you want to connect to: ")
-			response, err := unicast(thisName, people[boardName], "connectToBoard")
-			if err != nil {
-				fmt.Println("[error] Error sending message:", err)
-				continue
-			}
-			fmt.Printf("[log] Response from %s: %q\n", boardName, string(response))
-			lines := parseLine(string(response))
-			newBoard := NewBoard(boardName)
-			newBoard.lines = lines
-			boards[boardName] = newBoard
-			fmt.Printf("[log] Board %v added", boards[boardName].name)
-			go newBoard.Start(thisName, people, isBoard, connectedClients)
+			fmt.Println()
+			printHorizontalLine()
+		case "help":
+			printHorizontalLine()
+			printCommands()
+			printHorizontalLine()
+		default:
+			fmt.Println("command not found")
 		}
-
 	}
-}
-
-func parseLine(lines string) []Line {
-	var result []Line
-
-	linesArr := strings.Split(strings.TrimSpace(lines), "\n")
-
-	numLines, err := strconv.Atoi(linesArr[0])
-	if err != nil {
-		fmt.Println("[error] Error parsing number of lines:", err)
-		return result
-	}
-
-	for i := 1; i <= numLines; i++ {
-		lineArr := strings.Split(linesArr[i], " ")
-		if len(lineArr) != 4 {
-			fmt.Println("[error] Invalid line format:", linesArr[i])
-			continue
-		}
-		x1, err := strconv.ParseFloat(lineArr[0], 64)
-		if err != nil {
-			fmt.Println("[error] Error parsing x1:", err)
-			continue
-		}
-		y1, err := strconv.ParseFloat(lineArr[1], 64)
-		if err != nil {
-			fmt.Println("[error] Error parsing y1:", err)
-			continue
-		}
-		x2, err := strconv.ParseFloat(lineArr[2], 64)
-		if err != nil {
-			fmt.Println("[error] Error parsing x2:", err)
-			continue
-		}
-		y2, err := strconv.ParseFloat(lineArr[3], 64)
-		if err != nil {
-			fmt.Println("[error] Error parsing y2:", err)
-			continue
-		}
-		result = append(result, Line{
-			Start: raylib.Vector2{X: float32(x1), Y: float32(y1)},
-			End:   raylib.Vector2{X: float32(x2), Y: float32(y2)},
-		})
-	}
-
-	return result
 }

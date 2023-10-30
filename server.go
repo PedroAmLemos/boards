@@ -4,90 +4,91 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 	"time"
-
-	raylib "github.com/gen2brain/raylib-go/raylib"
 )
 
-func handleConnection(conn net.Conn, people map[string]string, boards map[string]*Board, isBoard *bool, connectedClients map[string]string, thisName string) {
+func handleConnection(nodes map[string]*Node, conn net.Conn) {
 	defer conn.Close()
-	dinamicBuffer := make([]byte, 1024)
-	n, err := conn.Read(dinamicBuffer)
+	buffer := make([]byte, 1024)
+	n, err := conn.Read(buffer)
 	if err != nil {
-		fmt.Println("Error reading:", err.Error())
+		fmt.Println("Error reading from connection: ", err)
 		return
 	}
-
-	msg := string(dinamicBuffer[:n])
+	msg := string(buffer[:n])
+	fmt.Printf("[log] Received message: %s\n> ", msg)
 	msgParts := strings.Split(msg, " ")
 	name := msgParts[0]
 	cmd := msgParts[1]
 	switch cmd {
-	case "PING":
-		fmt.Printf("\n[log] Received PING, sending PONG back\n")
-		conn.Write([]byte("PONG"))
-	case "listBoards":
-		fmt.Printf("\n[log] Received listBoards, sending %t back\n", *isBoard)
-		if *isBoard {
+	case "listcreatedboards":
+		fmt.Println()
+		printHorizontalLine()
+		fmt.Printf("\n[log] %s is asking if this node has a board created\n> ", name)
+		if nodes["thisNode"].board != nil {
 			conn.Write([]byte("true"))
 		} else {
 			conn.Write([]byte("false"))
 		}
-	case "connectToBoard":
-		fmt.Printf("\n[log] Received connectToBoard, sending the lines back\n")
-		conn.Write([]byte(boards["mainBoard"].GetLines()))
-		connectedClients[name] = people[name]
-		fmt.Printf("\n[log] New client connected: %v\n> ", name)
-	case "newLine":
-		boardName := string(msgParts[2])
-		fmt.Printf("\n[log] Received newLine from %v to %v, printing it into the board\n", name, boardName)
-		conn.Write([]byte("Line created"))
-		x1, err := strconv.ParseFloat(msgParts[3], 32)
-		if err != nil {
-			fmt.Println("[error] Error parsing float:", err.Error())
+		printHorizontalLine()
+		fmt.Printf("\n> ")
+
+	case "connecttoboard":
+		fmt.Println()
+		printHorizontalLine()
+		fmt.Printf("\n[log] %s is asking to connect to this node's board\n> ", name)
+		if nodes["thisNode"].board == nil {
+			conn.Write([]byte("false"))
 			return
 		}
-		y1, err := strconv.ParseFloat(msgParts[4], 32)
-		if err != nil {
-			fmt.Println("[error] Error parsing float:", err.Error())
+		lines := nodes["thisNode"].board.GetLines()
+		conn.Write([]byte(lines))
+		nodes["thisNode"].board.connectedClients[name] = struct{}{}
+		printHorizontalLine()
+		fmt.Printf("\n> ")
+	case "disconnectfromboard":
+		fmt.Printf("\n[log] %s is asking to disconnect from this node's board\n> ", name)
+		if nodes["thisNode"].board == nil {
+			conn.Write([]byte("false"))
 			return
 		}
-		x2, err := strconv.ParseFloat(msgParts[5], 32)
-		if err != nil {
-			fmt.Println("[error] Error parsing float:", err.Error())
-			return
-		}
-		y2, err := strconv.ParseFloat(msgParts[6], 32)
-		if err != nil {
-			fmt.Println("[error] Error parsing float:", err.Error())
-			return
-		}
-		fmt.Printf("\n[log] New line at %.2f %.2f %.2f %.2f from %v\n> ", x1, y1, x2, y2, boardName)
-		boards[boardName].AddLine(Line{
-			Start: raylib.Vector2{X: float32(x1), Y: float32(y1)},
-			End:   raylib.Vector2{X: float32(x2), Y: float32(y2)},
-		})
+		delete(nodes["thisNode"].board.connectedClients, name)
+		conn.Write([]byte("true"))
+		//case "updateline":
+		//	fmt.Printf("\n[log] %s is updating a line\n> ", name)
+	case "newline":
+		fmt.Println()
+		printHorizontalLine()
+		fmt.Printf("\n[log] %s is creating a new line\n", name)
+		boardName := msgParts[2]
+		line := parseLine(msgParts[3:])
 		if boardName == "mainBoard" {
-			fmt.Printf("\n[log] Sending to %v\n", connectedClients)
-			for clientName, ip := range connectedClients {
-				if clientName != name {
-					unicast(thisName, ip, fmt.Sprintf("newLine %v %.2f %.2f %.2f %.2f", thisName, x1, y1, x2, y2))
+			nodes["thisNode"].board.AddLine(line)
+			for client := range nodes["thisNode"].board.connectedClients {
+				if client != name {
+					unicast(nodes, client, fmt.Sprintf("newline %s %s", nodes["thisNode"].name, line.String()))
 				}
 			}
-
+		} else {
+			nodes[boardName].board.AddLine(line)
 		}
+		conn.Write([]byte("true"))
+		fmt.Println()
+		printHorizontalLine()
+		fmt.Printf("\n> ")
+
 	default:
 		fmt.Printf("\n[log] Received unknown message: %s\n", msg)
 		conn.Write([]byte("Received unknown message"))
+		fmt.Printf("\n> ")
 	}
-	fmt.Printf("> ")
 }
 
-func startServer(ip string, waitServerStart chan bool, people map[string]string, boards map[string]*Board, isBoard *bool, connectedClients map[string]string, thisName string) {
+func startServer(nodes map[string]*Node, waitServerStart chan bool) {
 	const maxRetries = 3
 	retries := 0
+	ip := nodes["thisNode"].ip
 
 	for retries < maxRetries {
 		ln, err := net.Listen("tcp", ip)
@@ -98,7 +99,7 @@ func startServer(ip string, waitServerStart chan bool, people map[string]string,
 			continue
 		}
 
-		fmt.Printf("[log] Server started successfully on port: %s\n", ip)
+		fmt.Printf("\n[log] Server started successfully on port: %s\n> ", ip)
 		waitServerStart <- true
 
 		defer ln.Close()
@@ -108,7 +109,8 @@ func startServer(ip string, waitServerStart chan bool, people map[string]string,
 				fmt.Println("Error accepting connection:", err)
 				continue
 			}
-			go handleConnection(conn, people, boards, isBoard, connectedClients, thisName)
+			fmt.Printf("[log] Accepted connection from %s\n> ", conn.RemoteAddr())
+			go handleConnection(nodes, conn)
 		}
 	}
 
