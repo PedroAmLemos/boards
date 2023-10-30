@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool, stopChan chan struct{}) {
+func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool, changedOwner *bool, createBoardSignal chan BoardAction) {
 	defer conn.Close()
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
@@ -44,6 +44,18 @@ func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool, 
 		}
 		lines := nodes["thisNode"].board.GetLines()
 		conn.Write([]byte(lines))
+		// send list of connected clients to the new client and notify the others
+		clients := nodes["thisNode"].board.connectedClients
+		clientsList := ""
+		for client := range clients {
+			clientsList += fmt.Sprintf("%s ", client)
+		}
+		unicast(nodes, name, fmt.Sprintf("connectedclients %s", clientsList))
+		for client := range clients {
+			if client != name {
+				unicast(nodes, client, fmt.Sprintf("newclient %s", name))
+			}
+		}
 		nodes["thisNode"].board.connectedClients[name] = struct{}{}
 		printHorizontalLine()
 		fmt.Printf("\n> ")
@@ -65,20 +77,26 @@ func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool, 
 	case "newboardowner":
 		fmt.Println()
 		printHorizontalLine()
-		stopChan <- struct{}{}
-		// 		oldOwner := msgParts[2]
-		// 		newOwner := msgParts[3]
-		// 		if nodes["thisNode"].board != nil {
-		// 			if nodes["thisNode"].board.name == oldOwner {
-		// 				fmt.Printf("\n[log] %s is the new owner of the board\n> ", newOwner)
-		// 				nodes["thisNode"].board.name = "mainBoard"
-		// 				nodes[newOwner].board = nodes["thisNode"].board
-		// 				nodes[oldOwner].board = nil
-		// 				// *activeBoard = false
-		// 				printHorizontalLine()
-		// 				fmt.Printf("\n> ")
-		// 			}
-		// 		}
+		oldOwner := msgParts[2]
+		newOwner := msgParts[3]
+		fmt.Printf("\n[log] Change of ownership: %v to %v\n", oldOwner, newOwner)
+		if nodes[oldOwner].board != nil {
+			fmt.Printf("\n[log] Stoping check for board %s\n", oldOwner)
+			*activeBoard = false
+			*changedOwner = true
+			time.Sleep(2 * time.Second)
+			// nodes[oldOwner].board = nil
+			board := nodes[oldOwner].board
+			board.name = newOwner
+			nodes[newOwner].board = board
+			nodes[oldOwner].board = nil
+			createBoardSignal <- BoardAction{BoardName: newOwner, Action: "changeOwner"}
+			fmt.Printf("\n[log] %s is the new owner of the board %s\n", newOwner, oldOwner)
+			printHorizontalLine()
+			fmt.Printf("\n> ")
+		}
+		fmt.Printf("\n[log] %s is the new owner of the board %s\n> ", newOwner, oldOwner)
+		conn.Write([]byte("true"))
 	case "updateline":
 		fmt.Println()
 		printHorizontalLine()
@@ -120,7 +138,23 @@ func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool, 
 		fmt.Println()
 		printHorizontalLine()
 		fmt.Printf("\n> ")
-
+	case "connectedclients":
+		fmt.Println()
+		printHorizontalLine()
+		fmt.Printf("\n[log] %s is sending the list of connected clients\n", name)
+		clients := msgParts[2:]
+		for _, client := range clients {
+			nodes[name].board.connectedClients[client] = struct{}{}
+		}
+		printHorizontalLine()
+		fmt.Printf("\n> ")
+	case "newclient":
+		fmt.Println()
+		printHorizontalLine()
+		fmt.Printf("\n[log] %s is notifying that a new client has connected\n", name)
+		nodes[name].board.connectedClients[msgParts[2]] = struct{}{}
+		printHorizontalLine()
+		fmt.Printf("\n> ")
 	default:
 		fmt.Printf("\n[log] Received unknown message: %s\n", msg)
 		conn.Write([]byte("Received unknown message"))
@@ -128,7 +162,7 @@ func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool, 
 	}
 }
 
-func startServer(nodes map[string]*Node, waitServerStart chan bool, activeBoard *bool, stopChan chan struct{}) {
+func startServer(nodes map[string]*Node, waitServerStart chan bool, activeBoard *bool, changedOwner *bool, createBoardSignal chan BoardAction) {
 	const maxRetries = 3
 	retries := 0
 	ip := nodes["thisNode"].ip
@@ -153,7 +187,7 @@ func startServer(nodes map[string]*Node, waitServerStart chan bool, activeBoard 
 				continue
 			}
 			fmt.Printf("[log] Accepted connection from %s\n> ", conn.RemoteAddr())
-			go handleConnection(nodes, conn, activeBoard, stopChan)
+			go handleConnection(nodes, conn, activeBoard, changedOwner, createBoardSignal)
 		}
 	}
 

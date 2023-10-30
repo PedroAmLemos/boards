@@ -30,7 +30,7 @@ func unicast(nodes map[string]*Node, receiver string, message string) ([]byte, e
 	if err != nil {
 		return nil, fmt.Errorf("could not send message to %s: %v", node.name, err)
 	}
-	fmt.Printf("[log] Sent message to %s\n[log] Waiting for response...", node.name)
+	fmt.Printf("[log] Sent message to %s\n[log] Waiting for response...\n", node.name)
 	response := make([]byte, 1024)
 	n, err := conn.Read(response)
 	if err != nil {
@@ -144,20 +144,17 @@ func mainLoop(nodes map[string]*Node, createBoardSignal chan BoardAction, active
 	}
 }
 
-func checkBoardConnection(nodes map[string]*Node, boardName string, createBoardSignal chan BoardAction, activeBoard *bool, stopChan chan struct{}) {
+func checkBoardConnection(nodes map[string]*Node, boardName string, createBoardSignal chan BoardAction, activeBoard *bool, changedOwner *bool) {
 	for {
-		select {
-		case <-stopChan:
+		if *changedOwner {
 			return
-		default:
-			time.Sleep(5 * time.Second)
-			_, err := net.Dial("tcp", nodes[boardName].ip)
-			if err != nil {
-				*activeBoard = false
-				createBoardSignal <- BoardAction{Action: "newOwner", BoardName: boardName}
-				return
-			}
-
 		}
+		_, err := net.Dial("tcp", nodes[boardName].ip)
+		if err != nil {
+			*activeBoard = false
+			createBoardSignal <- BoardAction{Action: "newOwner", BoardName: boardName}
+			return
+		}
+		time.Sleep(7 * time.Second)
 	}
 }

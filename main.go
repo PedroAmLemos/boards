@@ -19,13 +19,21 @@ func main() {
 	go mainLoop(nodes, createBoardSignal, &activeBoard)
 
 	waitServerStart := make(chan bool)
-	stopChan := make(chan struct{})
-	go startServer(nodes, waitServerStart, &activeBoard, stopChan)
+	stopCheck := false
+	go startServer(nodes, waitServerStart, &activeBoard, &stopCheck, createBoardSignal)
 	<-waitServerStart
 
 	for boardAction := range createBoardSignal {
 		fmt.Printf("\n[board] %s\n> ", boardAction)
 		switch boardAction.Action {
+		case "changeOwner":
+			fmt.Println()
+			printHorizontalLine()
+			fmt.Printf("[board] Starting board %s\n", boardAction.BoardName)
+			activeBoard = true
+			stopCheck = false
+			go checkBoardConnection(nodes, boardAction.BoardName, createBoardSignal, &activeBoard, &stopCheck)
+			nodes[boardAction.BoardName].board.Start(nodes, &activeBoard)
 		case "newOwner":
 			fmt.Println()
 			printHorizontalLine()
@@ -34,9 +42,7 @@ func main() {
 			board.name = "mainBoard"
 			nodes["thisNode"].board = board
 			nodes[boardAction.BoardName].board = nil
-			for name := range board.connectedClients {
-				unicast(nodes, name, fmt.Sprintf("newOwner %v %v", boardAction.BoardName, nodes["thisNode"].name))
-			}
+			multicast(nodes, fmt.Sprintf("newboardowner %v %v", boardAction.BoardName, nodes["thisNode"].name))
 			activeBoard = true
 			board.Start(nodes, &activeBoard)
 
@@ -57,7 +63,7 @@ func main() {
 			printHorizontalLine()
 			fmt.Printf("\n> ")
 		case "connect":
-			go checkBoardConnection(nodes, boardAction.BoardName, createBoardSignal, &activeBoard, stopChan)
+			go checkBoardConnection(nodes, boardAction.BoardName, createBoardSignal, &activeBoard, &stopCheck)
 			boardOwner := nodes[boardAction.BoardName]
 			if boardOwner == nil {
 				fmt.Printf("\n[board] Board %s does not exist\n", boardAction.BoardName)
@@ -84,6 +90,9 @@ func main() {
 			fmt.Printf("\n[board] Board %s deleted\n", boardAction.BoardName)
 			// nodes[boardAction.BoardName].board = nil
 			// unicast(nodes, boardOwner.name, fmt.Sprintf("clientdisconnected %v", nodes["thisNode"].name))
+			stopCheck = true
+			activeBoard = false
+			unicast(nodes, boardOwner.name, fmt.Sprintf("clientdisconnected %v", nodes["thisNode"].name))
 			printHorizontalLine()
 			fmt.Printf("\n> ")
 		}
