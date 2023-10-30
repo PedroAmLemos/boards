@@ -19,12 +19,27 @@ func main() {
 	go mainLoop(nodes, createBoardSignal, &activeBoard)
 
 	waitServerStart := make(chan bool)
-	go startServer(nodes, waitServerStart, &activeBoard)
+	stopChan := make(chan struct{})
+	go startServer(nodes, waitServerStart, &activeBoard, stopChan)
 	<-waitServerStart
 
 	for boardAction := range createBoardSignal {
 		fmt.Printf("\n[board] %s\n> ", boardAction)
 		switch boardAction.Action {
+		case "newOwner":
+			fmt.Println()
+			printHorizontalLine()
+			fmt.Printf("\nLost connection to %v\nThis will be the new owner\n", boardAction.BoardName)
+			board := nodes[boardAction.BoardName].board
+			board.name = "mainBoard"
+			nodes["thisNode"].board = board
+			nodes[boardAction.BoardName].board = nil
+			for name := range board.connectedClients {
+				unicast(nodes, name, fmt.Sprintf("newOwner %v %v", boardAction.BoardName, nodes["thisNode"].name))
+			}
+			activeBoard = true
+			board.Start(nodes, &activeBoard)
+
 		case "new":
 			fmt.Printf("\nCreating new board %s\n", boardAction.BoardName)
 			activeBoard = true
@@ -39,8 +54,10 @@ func main() {
 			activeBoard = false
 			nodes["thisNode"].board = nil
 			fmt.Printf("\n[board] Board %s closed\n", boardAction.BoardName)
+			printHorizontalLine()
+			fmt.Printf("\n> ")
 		case "connect":
-			// go checkConnection
+			go checkBoardConnection(nodes, boardAction.BoardName, createBoardSignal, &activeBoard, stopChan)
 			boardOwner := nodes[boardAction.BoardName]
 			if boardOwner == nil {
 				fmt.Printf("\n[board] Board %s does not exist\n", boardAction.BoardName)
@@ -65,6 +82,10 @@ func main() {
 			nodes[board.name].board = board
 			board.Start(nodes, &activeBoard)
 			fmt.Printf("\n[board] Board %s deleted\n", boardAction.BoardName)
+			// nodes[boardAction.BoardName].board = nil
+			// unicast(nodes, boardOwner.name, fmt.Sprintf("clientdisconnected %v", nodes["thisNode"].name))
+			printHorizontalLine()
+			fmt.Printf("\n> ")
 		}
 	}
 }

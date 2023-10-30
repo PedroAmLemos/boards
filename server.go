@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool) {
+func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool, stopChan chan struct{}) {
 	defer conn.Close()
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
@@ -54,6 +54,31 @@ func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool) 
 		*activeBoard = false
 		printHorizontalLine()
 		fmt.Printf("\n> ")
+	case "clientdisconnected":
+		fmt.Println()
+		printHorizontalLine()
+		fmt.Printf("\n[log] %s has disconnected from the board\n> ", name)
+		delete(nodes["thisNode"].board.connectedClients, name)
+		conn.Write([]byte("true"))
+		printHorizontalLine()
+		fmt.Printf("\n> ")
+	case "newboardowner":
+		fmt.Println()
+		printHorizontalLine()
+		stopChan <- struct{}{}
+		// 		oldOwner := msgParts[2]
+		// 		newOwner := msgParts[3]
+		// 		if nodes["thisNode"].board != nil {
+		// 			if nodes["thisNode"].board.name == oldOwner {
+		// 				fmt.Printf("\n[log] %s is the new owner of the board\n> ", newOwner)
+		// 				nodes["thisNode"].board.name = "mainBoard"
+		// 				nodes[newOwner].board = nodes["thisNode"].board
+		// 				nodes[oldOwner].board = nil
+		// 				// *activeBoard = false
+		// 				printHorizontalLine()
+		// 				fmt.Printf("\n> ")
+		// 			}
+		// 		}
 	case "updateline":
 		fmt.Println()
 		printHorizontalLine()
@@ -103,7 +128,7 @@ func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool) 
 	}
 }
 
-func startServer(nodes map[string]*Node, waitServerStart chan bool, activeBoard *bool) {
+func startServer(nodes map[string]*Node, waitServerStart chan bool, activeBoard *bool, stopChan chan struct{}) {
 	const maxRetries = 3
 	retries := 0
 	ip := nodes["thisNode"].ip
@@ -128,7 +153,7 @@ func startServer(nodes map[string]*Node, waitServerStart chan bool, activeBoard 
 				continue
 			}
 			fmt.Printf("[log] Accepted connection from %s\n> ", conn.RemoteAddr())
-			go handleConnection(nodes, conn, activeBoard)
+			go handleConnection(nodes, conn, activeBoard, stopChan)
 		}
 	}
 

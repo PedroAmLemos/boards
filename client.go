@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
 	raylib "github.com/gen2brain/raylib-go/raylib"
 )
@@ -54,7 +55,7 @@ func multicast(nodes map[string]*Node, message string) map[string][]byte {
 				continue
 			}
 			defer conn.Close()
-			msg := []byte(fmt.Sprintf("%v %v", node.name, message))
+			msg := []byte(fmt.Sprintf("%v %v", nodes["thisNode"].name, message))
 			_, err = conn.Write(msg)
 			if err != nil {
 				fmt.Printf("[error] Could not send message to %s: %v\nContinuing...\n", node.name, err)
@@ -100,6 +101,19 @@ func mainLoop(nodes map[string]*Node, createBoardSignal chan BoardAction, active
 				Start: raylib.Vector2{X: 0, Y: 0},
 				End:   raylib.Vector2{X: 100, Y: 100},
 			})
+		case "listclients":
+		case "lc":
+			fmt.Println()
+			printHorizontalLine()
+			if nodes["thisNode"].board == nil {
+				printRed("[log] no board created")
+				continue
+			}
+			for client := range nodes["thisNode"].board.connectedClients {
+				fmt.Printf("%v[log] %s%v\n", RedColor, client, ResetColor)
+			}
+			fmt.Println()
+			printHorizontalLine()
 		case "listcreatedboards":
 		case "lscb":
 			responses := multicast(nodes, "listcreatedboards")
@@ -126,6 +140,24 @@ func mainLoop(nodes map[string]*Node, createBoardSignal chan BoardAction, active
 			printHorizontalLine()
 		default:
 			fmt.Println("command not found")
+		}
+	}
+}
+
+func checkBoardConnection(nodes map[string]*Node, boardName string, createBoardSignal chan BoardAction, activeBoard *bool, stopChan chan struct{}) {
+	for {
+		select {
+		case <-stopChan:
+			return
+		default:
+			time.Sleep(5 * time.Second)
+			_, err := net.Dial("tcp", nodes[boardName].ip)
+			if err != nil {
+				*activeBoard = false
+				createBoardSignal <- BoardAction{Action: "newOwner", BoardName: boardName}
+				return
+			}
+
 		}
 	}
 }

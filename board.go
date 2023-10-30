@@ -49,19 +49,53 @@ func (b *Board) Notifier(nodes map[string]*Node) {
 	for {
 		select {
 		case line := <-b.updateChan:
-			fmt.Printf("\nLine updated: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
+			fmt.Printf(
+				"\nLine updated: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ",
+				line.Start.X,
+				line.Start.Y,
+				line.End.X,
+				line.End.Y,
+			)
 			if b.name == "mainBoard" {
 				for client := range b.connectedClients {
-					unicast(nodes, client, fmt.Sprintf("updateline %v %f %f %f %f", nodes["thisNode"].name, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
+					unicast(
+						nodes,
+						client,
+						fmt.Sprintf(
+							"updateline %v %f %f %f %f",
+							nodes["thisNode"].name,
+							line.Start.X,
+							line.Start.Y,
+							line.End.X,
+							line.End.Y,
+						),
+					)
 				}
 			} else {
 				unicast(nodes, b.name, fmt.Sprintf("updateline mainBoard %f %f %f %f", line.Start.X, line.Start.Y, line.End.X, line.End.Y))
 			}
 		case line := <-b.newChan:
-			fmt.Printf("\nLine created: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
+			fmt.Printf(
+				"\nLine created: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ",
+				line.Start.X,
+				line.Start.Y,
+				line.End.X,
+				line.End.Y,
+			)
 			if b.name == "mainBoard" {
 				for client := range b.connectedClients {
-					unicast(nodes, client, fmt.Sprintf("newline %v %f %f %f %f", nodes["thisNode"].name, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
+					unicast(
+						nodes,
+						client,
+						fmt.Sprintf(
+							"newline %v %f %f %f %f",
+							nodes["thisNode"].name,
+							line.Start.X,
+							line.Start.Y,
+							line.End.X,
+							line.End.Y,
+						),
+					)
 				}
 			} else {
 				unicast(nodes, b.name, fmt.Sprintf("newline mainBoard %f %f %f %f", line.Start.X, line.Start.Y, line.End.X, line.End.Y))
@@ -92,7 +126,6 @@ func (b *Board) Start(nodes map[string]*Node, activeBoard *bool) {
 	}
 
 	raylib.CloseWindow()
-	// *activeBoard = false
 	fmt.Print("> ")
 }
 
@@ -147,31 +180,6 @@ func (b *Board) HandleInput() {
 	}
 }
 
-// func parseCoords(coords string) (*Line, error) {
-// 	parts := strings.Fields(coords)
-// 	x1, err := strconv.ParseFloat(parts[0], 64)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	y1, err := strconv.ParseFloat(parts[1], 64)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	x2, err := strconv.ParseFloat(parts[2], 64)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	y2, err := strconv.ParseFloat(parts[3], 64)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	newLine := Line{
-// 		Start: raylib.Vector2{X: float32(x1), Y: float32(y1)},
-// 		End:   raylib.Vector2{X: float32(x2), Y: float32(y2)},
-// 	}
-// 	return &newLine, nil
-// }
-
 func (b *Board) DrawLines() {
 	for _, line := range b.lines {
 		raylib.DrawLineEx(line.Start, line.End, 2, raylib.DarkGray)
@@ -194,7 +202,6 @@ func (b *Board) GetLines() string {
 		linesString += fmt.Sprintf("%.2f %.2f %.2f %.2f\n", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
 	}
 	return linesString
-
 }
 
 func (b *Board) CloseBoard() {
