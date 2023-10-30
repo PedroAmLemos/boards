@@ -31,21 +31,23 @@ func main() {
 			printHorizontalLine()
 			fmt.Printf("[board] Starting board %s\n", boardAction.BoardName)
 			activeBoard = true
-			stopCheck = false
 			go checkBoardConnection(nodes, boardAction.BoardName, createBoardSignal, &activeBoard, &stopCheck)
+			stopCheck = false
 			nodes[boardAction.BoardName].board.Start(nodes, &activeBoard)
+			unicast(nodes, boardAction.BoardName, fmt.Sprintf("boarddeleted %v", nodes[thisNode].name, nodes["thisNode"].name))
 		case "newOwner":
 			fmt.Println()
 			printHorizontalLine()
 			fmt.Printf("\nLost connection to %v\nThis will be the new owner\n", boardAction.BoardName)
 			board := nodes[boardAction.BoardName].board
-			board.name = "mainBoard"
-			nodes["thisNode"].board = board
-			nodes[boardAction.BoardName].board = nil
-			multicast(nodes, fmt.Sprintf("newboardowner %v %v", boardAction.BoardName, nodes["thisNode"].name))
-			activeBoard = true
-			board.Start(nodes, &activeBoard)
-
+			if board != nil {
+				board.name = "mainBoard"
+				nodes["thisNode"].board = board
+				nodes[boardAction.BoardName].board = nil
+				multicast(nodes, fmt.Sprintf("newboardowner %v %v", boardAction.BoardName, nodes["thisNode"].name))
+				activeBoard = true
+				board.Start(nodes, &activeBoard)
+			}
 		case "new":
 			fmt.Printf("\nCreating new board %s\n", boardAction.BoardName)
 			activeBoard = true
@@ -92,7 +94,7 @@ func main() {
 			// unicast(nodes, boardOwner.name, fmt.Sprintf("clientdisconnected %v", nodes["thisNode"].name))
 			stopCheck = true
 			activeBoard = false
-			unicast(nodes, boardOwner.name, fmt.Sprintf("clientdisconnected %v", nodes["thisNode"].name))
+			unicast(nodes, boardOwner.name, fmt.Sprintf("clientdisconnected %v %v", boardOwner.name, nodes["thisNode"].name))
 			printHorizontalLine()
 			fmt.Printf("\n> ")
 		}

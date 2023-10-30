@@ -11,6 +11,9 @@ import (
 )
 
 func unicast(nodes map[string]*Node, receiver string, message string) ([]byte, error) {
+	if receiver == nodes["thisNode"].name {
+		return nil, fmt.Errorf("cannot unicast to self")
+	}
 	fmt.Println()
 	printHorizontalLine()
 	fmt.Printf("[log] Unicasting %s\n", message)
@@ -83,13 +86,13 @@ func mainLoop(nodes map[string]*Node, createBoardSignal chan BoardAction, active
 		switch command {
 		case "exit":
 			os.Exit(0)
-		case "createboard":
+		case "createboard", "cb":
 			if *activeBoard {
 				fmt.Println("You are already connected to a board")
 				continue
 			}
 			createBoardSignal <- BoardAction{Action: "new", BoardName: "mainBoard"}
-		case "connecttoboard":
+		case "connecttoboard", "ctb":
 			if *activeBoard {
 				fmt.Println("You are already connected to a board")
 				continue
@@ -101,8 +104,7 @@ func mainLoop(nodes map[string]*Node, createBoardSignal chan BoardAction, active
 				Start: raylib.Vector2{X: 0, Y: 0},
 				End:   raylib.Vector2{X: 100, Y: 100},
 			})
-		case "listclients":
-		case "lc":
+		case "listclients", "lc":
 			fmt.Println()
 			printHorizontalLine()
 			if nodes["thisNode"].board == nil {
@@ -114,8 +116,7 @@ func mainLoop(nodes map[string]*Node, createBoardSignal chan BoardAction, active
 			}
 			fmt.Println()
 			printHorizontalLine()
-		case "listcreatedboards":
-		case "lscb":
+		case "listcreatedboards", "lscb":
 			responses := multicast(nodes, "listcreatedboards")
 			count := 0
 			printHorizontalLine()
@@ -155,6 +156,6 @@ func checkBoardConnection(nodes map[string]*Node, boardName string, createBoardS
 			createBoardSignal <- BoardAction{Action: "newOwner", BoardName: boardName}
 			return
 		}
-		time.Sleep(7 * time.Second)
+		time.Sleep(3 * time.Second)
 	}
 }

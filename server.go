@@ -70,7 +70,15 @@ func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool, 
 		fmt.Println()
 		printHorizontalLine()
 		fmt.Printf("\n[log] %s has disconnected from the board\n> ", name)
-		delete(nodes["thisNode"].board.connectedClients, name)
+		owner := msgParts[2]
+		if nodes["thisNode"].name == owner {
+			delete(nodes["thisNode"].board.connectedClients, name)
+			for client := range nodes["thisNode"].board.connectedClients {
+				unicast(nodes, client, fmt.Sprintf("clientdisconnected %v %s", nodes["thisNode"].name, name))
+			}
+		} else {
+			delete(nodes[owner].board.connectedClients, name)
+		}
 		conn.Write([]byte("true"))
 		printHorizontalLine()
 		fmt.Printf("\n> ")
@@ -84,7 +92,7 @@ func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool, 
 			fmt.Printf("\n[log] Stoping check for board %s\n", oldOwner)
 			*activeBoard = false
 			*changedOwner = true
-			time.Sleep(2 * time.Second)
+			time.Sleep(1 * time.Second)
 			// nodes[oldOwner].board = nil
 			board := nodes[oldOwner].board
 			board.name = newOwner
