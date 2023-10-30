@@ -64,6 +64,7 @@ func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool, 
 		printHorizontalLine()
 		fmt.Printf("\n[log] %s has deleted it's board\n> ", name)
 		*activeBoard = false
+		*changedOwner = true
 		printHorizontalLine()
 		fmt.Printf("\n> ")
 	case "clientdisconnected":
