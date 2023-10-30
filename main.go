@@ -19,7 +19,7 @@ func main() {
 	go mainLoop(nodes, createBoardSignal, &activeBoard)
 
 	waitServerStart := make(chan bool)
-	go startServer(nodes, waitServerStart)
+	go startServer(nodes, waitServerStart, &activeBoard)
 	<-waitServerStart
 
 	for boardAction := range createBoardSignal {
@@ -31,6 +31,14 @@ func main() {
 			board := NewBoard("mainBoard")
 			nodes["thisNode"].board = board
 			board.Start(nodes, &activeBoard)
+			fmt.Printf("\n[board] Disconnecting from board %s\n", boardAction.BoardName)
+			clients := nodes["thisNode"].board.connectedClients
+			for name := range clients {
+				unicast(nodes, name, fmt.Sprintf("boarddeleted %v", nodes["thisNode"].name))
+			}
+			activeBoard = false
+			nodes["thisNode"].board = nil
+			fmt.Printf("\n[board] Board %s closed\n", boardAction.BoardName)
 		case "connect":
 			// go checkConnection
 			boardOwner := nodes[boardAction.BoardName]
@@ -56,6 +64,7 @@ func main() {
 			}
 			nodes[board.name].board = board
 			board.Start(nodes, &activeBoard)
+			fmt.Printf("\n[board] Board %s deleted\n", boardAction.BoardName)
 		}
 	}
 }

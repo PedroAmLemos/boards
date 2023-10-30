@@ -50,8 +50,12 @@ func (b *Board) Notifier(nodes map[string]*Node) {
 		select {
 		case line := <-b.updateChan:
 			fmt.Printf("\nLine updated: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
-			for client := range b.connectedClients {
-				unicast(nodes, client, fmt.Sprintf("updateline %f %f %f %f", line.Start.X, line.Start.Y, line.End.X, line.End.Y))
+			if b.name == "mainBoard" {
+				for client := range b.connectedClients {
+					unicast(nodes, client, fmt.Sprintf("updateline %v %f %f %f %f", nodes["thisNode"].name, line.Start.X, line.Start.Y, line.End.X, line.End.Y))
+				}
+			} else {
+				unicast(nodes, b.name, fmt.Sprintf("updateline mainBoard %f %f %f %f", line.Start.X, line.Start.Y, line.End.X, line.End.Y))
 			}
 		case line := <-b.newChan:
 			fmt.Printf("\nLine created: x1 = %.2f, y1 = %.2f, x2 = %.2f, y2 = %.2f\n> ", line.Start.X, line.Start.Y, line.End.X, line.End.Y)
@@ -74,7 +78,7 @@ func (b *Board) Start(nodes map[string]*Node, activeBoard *bool) {
 	go b.Notifier(nodes)
 
 	fmt.Print("> ")
-	for !raylib.WindowShouldClose() {
+	for !raylib.WindowShouldClose() && *activeBoard {
 		b.mu.Lock()
 		b.HandleInput()
 		b.mu.Unlock()
@@ -88,12 +92,21 @@ func (b *Board) Start(nodes map[string]*Node, activeBoard *bool) {
 	}
 
 	raylib.CloseWindow()
-	*activeBoard = false
+	// *activeBoard = false
 	fmt.Print("> ")
 }
 
 func (b *Board) AddLine(newLine Line) {
 	b.lines = append(b.lines, newLine)
+}
+
+func (b *Board) UpdateLine(updatedLine Line) {
+	for i := range b.lines {
+		if b.lines[i].Start == updatedLine.Start || b.lines[i].End == updatedLine.End {
+			b.lines[i] = updatedLine
+			break
+		}
+	}
 }
 
 func (b *Board) HandleInput() {
@@ -182,6 +195,10 @@ func (b *Board) GetLines() string {
 	}
 	return linesString
 
+}
+
+func (b *Board) CloseBoard() {
+	raylib.CloseWindow()
 }
 
 func parseLine(line []string) Line {

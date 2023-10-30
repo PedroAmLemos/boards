@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func handleConnection(nodes map[string]*Node, conn net.Conn) {
+func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool) {
 	defer conn.Close()
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
@@ -47,16 +47,34 @@ func handleConnection(nodes map[string]*Node, conn net.Conn) {
 		nodes["thisNode"].board.connectedClients[name] = struct{}{}
 		printHorizontalLine()
 		fmt.Printf("\n> ")
-	case "disconnectfromboard":
-		fmt.Printf("\n[log] %s is asking to disconnect from this node's board\n> ", name)
-		if nodes["thisNode"].board == nil {
-			conn.Write([]byte("false"))
-			return
+	case "boarddeleted":
+		fmt.Println()
+		printHorizontalLine()
+		fmt.Printf("\n[log] %s has deleted it's board\n> ", name)
+		*activeBoard = false
+		printHorizontalLine()
+		fmt.Printf("\n> ")
+	case "updateline":
+		fmt.Println()
+		printHorizontalLine()
+		fmt.Printf("\n[log] %s is updating a line\n", name)
+		boardName := msgParts[2]
+		line := parseLine(msgParts[3:])
+		if boardName == "mainBoard" {
+			nodes["thisNode"].board.UpdateLine(line)
+			for client := range nodes["thisNode"].board.connectedClients {
+				if client != name {
+					unicast(nodes, client, fmt.Sprintf("updateline %s %s", nodes["thisNode"].name, line.String()))
+				}
+			}
+		} else {
+			nodes[boardName].board.UpdateLine(line)
 		}
-		delete(nodes["thisNode"].board.connectedClients, name)
 		conn.Write([]byte("true"))
-		//case "updateline":
-		//	fmt.Printf("\n[log] %s is updating a line\n> ", name)
+		fmt.Println()
+		printHorizontalLine()
+		fmt.Printf("\n> ")
+
 	case "newline":
 		fmt.Println()
 		printHorizontalLine()
@@ -85,7 +103,7 @@ func handleConnection(nodes map[string]*Node, conn net.Conn) {
 	}
 }
 
-func startServer(nodes map[string]*Node, waitServerStart chan bool) {
+func startServer(nodes map[string]*Node, waitServerStart chan bool, activeBoard *bool) {
 	const maxRetries = 3
 	retries := 0
 	ip := nodes["thisNode"].ip
@@ -110,7 +128,7 @@ func startServer(nodes map[string]*Node, waitServerStart chan bool) {
 				continue
 			}
 			fmt.Printf("[log] Accepted connection from %s\n> ", conn.RemoteAddr())
-			go handleConnection(nodes, conn)
+			go handleConnection(nodes, conn, activeBoard)
 		}
 	}
 

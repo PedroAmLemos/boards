@@ -87,7 +87,7 @@ func mainLoop(nodes map[string]*Node, createBoardSignal chan BoardAction, active
 				fmt.Println("You are already connected to a board")
 				continue
 			}
-			createBoardSignal <- BoardAction{Action: "new"}
+			createBoardSignal <- BoardAction{Action: "new", BoardName: "mainBoard"}
 		case "connecttoboard":
 			if *activeBoard {
 				fmt.Println("You are already connected to a board")
