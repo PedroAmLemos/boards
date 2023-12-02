@@ -150,8 +150,9 @@ func checkBoardConnection(nodes map[string]*Node, boardName string, createBoardS
 		if *changedOwner {
 			return
 		}
+
 		_, err := net.Dial("tcp", nodes[boardName].ip)
-		if err != nil {
+		if err != nil && !*changedOwner {
 			*activeBoard = false
 			createBoardSignal <- BoardAction{Action: "newOwner", BoardName: boardName}
 			return

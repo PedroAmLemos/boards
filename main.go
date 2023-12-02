@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type BoardAction struct {
 	Action    string
@@ -27,34 +30,38 @@ func main() {
 		fmt.Printf("\n[board] %s\n> ", boardAction)
 		switch boardAction.Action {
 		case "changeOwner":
+			stopCheck = true
+			time.Sleep(time.Second * 3)
 			fmt.Println()
 			printHorizontalLine()
 			fmt.Printf("[board] Starting board %s\n", boardAction.BoardName)
 			activeBoard = true
-			go checkBoardConnection(nodes, boardAction.BoardName, createBoardSignal, &activeBoard, &stopCheck)
 			stopCheck = false
+			go checkBoardConnection(nodes, boardAction.BoardName, createBoardSignal, &activeBoard, &stopCheck)
 			nodes[boardAction.BoardName].board.Start(nodes, &activeBoard)
 		case "newOwner":
-			fmt.Println()
-			printHorizontalLine()
-			fmt.Printf("\nLost connection to %v\nThis will be the new owner\n", boardAction.BoardName)
-			board := nodes[boardAction.BoardName].board
-			if board != nil {
-				board.name = "mainBoard"
-				nodes["thisNode"].board = board
-				nodes[boardAction.BoardName].board = nil
-				multicast(nodes, fmt.Sprintf("newboardowner %v %v", boardAction.BoardName, nodes["thisNode"].name))
-				activeBoard = true
-				board.Start(nodes, &activeBoard)
-				clients := nodes["thisNode"].board.connectedClients
-				for name := range clients {
-					unicast(nodes, name, fmt.Sprintf("boarddeleted %v", nodes["thisNode"].name))
-				}
-				activeBoard = false
-				nodes["thisNode"].board = nil
-				fmt.Printf("\n[board] Board %s closed\n", boardAction.BoardName)
+			if !activeBoard {
+				fmt.Println()
 				printHorizontalLine()
-				fmt.Printf("\n> ")
+				fmt.Printf("\nLost connection to %v\nThis will be the new owner\n", boardAction.BoardName)
+				board := nodes[boardAction.BoardName].board
+				if board != nil {
+					board.name = "mainBoard"
+					nodes["thisNode"].board = board
+					nodes[boardAction.BoardName].board = nil
+					multicast(nodes, fmt.Sprintf("newboardowner %v %v", boardAction.BoardName, nodes["thisNode"].name))
+					activeBoard = true
+					board.Start(nodes, &activeBoard)
+					clients := nodes["thisNode"].board.connectedClients
+					for name := range clients {
+						unicast(nodes, name, fmt.Sprintf("boarddeleted %v", nodes["thisNode"].name))
+					}
+					activeBoard = false
+					nodes["thisNode"].board = nil
+					fmt.Printf("\n[board] Board %s closed\n", boardAction.BoardName)
+					printHorizontalLine()
+					fmt.Printf("\n> ")
+				}
 			}
 		case "new":
 			fmt.Printf("\nCreating new board %s\n", boardAction.BoardName)

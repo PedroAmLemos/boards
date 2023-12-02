@@ -57,6 +57,7 @@ func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool, 
 			}
 		}
 		nodes["thisNode"].board.connectedClients[name] = struct{}{}
+		go checkClientConnection(nodes, name, activeBoard)
 		printHorizontalLine()
 		fmt.Printf("\n> ")
 	case "boarddeleted":
@@ -137,7 +138,10 @@ func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool, 
 			nodes["thisNode"].board.AddLine(line)
 			for client := range nodes["thisNode"].board.connectedClients {
 				if client != name {
-					unicast(nodes, client, fmt.Sprintf("newline %s %s", nodes["thisNode"].name, line.String()))
+					_, err := unicast(nodes, client, fmt.Sprintf("newline %s %s", nodes["thisNode"].name, line.String()))
+					if err != nil {
+						delete(nodes["thisNode"].board.connectedClients, client)
+					}
 				}
 			}
 		} else {
@@ -162,12 +166,27 @@ func handleConnection(nodes map[string]*Node, conn net.Conn, activeBoard *bool, 
 		printHorizontalLine()
 		fmt.Printf("\n[log] %s is notifying that a new client has connected\n", name)
 		nodes[name].board.connectedClients[msgParts[2]] = struct{}{}
+		go checkClientConnection(nodes, msgParts[2], activeBoard)
 		printHorizontalLine()
 		fmt.Printf("\n> ")
 	default:
 		fmt.Printf("\n[log] Received unknown message: %s\n", msg)
 		conn.Write([]byte("Received unknown message"))
 		fmt.Printf("\n> ")
+	}
+}
+
+func checkClientConnection(nodes map[string]*Node, clientName string, activeBoard *bool) {
+	for {
+		time.Sleep(time.Second * 2)
+		if *activeBoard {
+			_, err := net.Dial("tcp", nodes[clientName].ip)
+			if err != nil {
+				delete(nodes, clientName)
+				fmt.Printf("\n[log] Client disconnected %s\n", clientName)
+				return
+			}
+		}
 	}
 }
 
