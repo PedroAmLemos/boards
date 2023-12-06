@@ -182,7 +182,7 @@ func checkClientConnection(nodes map[string]*Node, clientName string, activeBoar
 		if *activeBoard {
 			_, err := net.Dial("tcp", nodes[clientName].ip)
 			if err != nil {
-				delete(nodes, clientName)
+				delete(nodes["thisNode"].board.connectedClients, clientName)
 				fmt.Printf("\n[log] Client disconnected %s\n", clientName)
 				return
 			}

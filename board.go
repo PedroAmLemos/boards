@@ -106,7 +106,7 @@ func (b *Board) Notifier(nodes map[string]*Node) {
 }
 
 func (b *Board) Start(nodes map[string]*Node, activeBoard *bool) {
-	raylib.InitWindow(1280, 720, b.name)
+	raylib.InitWindow(720, 360, b.name)
 	raylib.SetTargetFPS(60)
 
 	go b.Notifier(nodes)
